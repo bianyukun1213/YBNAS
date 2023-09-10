@@ -284,7 +284,7 @@ namespace YBNAS
                 .SetQueryParams(new { CSRF = csrfToken })
                 .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "Yiban", AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
-            var signinBody = new { OutState = "1", device.Code, device.PhoneModel, SignInfo = new { Reason = "", AttachmentFileName = "", LngLat = "126.65892872841522,45.820275900282255", Address = "黑龙江省哈尔滨市松北区浦源路2298号靠近黑龙江科技大学" } };
+            var signinBody = new { OutState = "1", device.Code, device.PhoneModel, SignInfo = new { Reason = "", AttachmentFileName = "", LngLat = _position, Address = _address } };
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqSignin.Url}，SigninBody：{JsonConvert.SerializeObject(signinBody)}……");
             string signinContent = await reqSignin.PostUrlEncodedAsync(signinBody).ReceiveString();
             _logger.Debug($"任务 {_taskGuid} - 收到响应：{signinContent}。");

@@ -54,7 +54,7 @@
 
 &emsp;&emsp;`Device` 字段配置授权设备信息，可在易班校本化“设备识别”页面获取，留空则从接口获取。
 
-&emsp;&emsp;`Position` 字段配置签到坐标，第一个值是经度，第二个值是纬度，可通过 [高德地图 API](https://lbs.amap.com/tools/picker) 获取，默认坐标是十八公寓。
+&emsp;&emsp;`Position` 字段配置签到坐标，第一个值是经度，第二个值是纬度，可通过[高德地图 API](https://lbs.amap.com/tools/picker) 获取，默认坐标是十八公寓。
 
 &emsp;&emsp;`Address` 字段配置签到地址。
 

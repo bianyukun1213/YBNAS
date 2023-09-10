@@ -297,7 +297,7 @@ namespace YBNAS
                 .SetQueryParams(new { CSRF = csrfToken })
                 .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "Yiban", AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
-            var signinBody = new { OutState = "1", device.Code, device.PhoneModel, SignInfo = new { Reason = "", AttachmentFileName = "", LngLat = _position, Address = _address } };
+            var signinBody = new { OutState = "1", device.Code, device.PhoneModel, SignInfo = JsonConvert.SerializeObject(new { Reason = "", AttachmentFileName = "", LngLat = _position, Address = _address }) }; // SignInfo 是字符串。
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqSignin.Url}，SigninBody：{JsonConvert.SerializeObject(signinBody)}……");
             string signinContent = await reqSignin.PostUrlEncodedAsync(signinBody).ReceiveString();
             _logger.Debug($"任务 {_taskGuid} - 收到响应：{signinContent}。");

@@ -95,7 +95,7 @@ for (int i = 0; i < tasks.Count; i++)
     {
         break;
     }
-    var res = tasks[i].Run(); // 消除 CS4014 警告，https://learn.microsoft.com/zh-cn/dotnet/csharp/language-reference/compiler-messages/cs4014
+    var res = tasks[i].Run(); // 消除 CS4014 警告，https://learn.microsoft.com/zh-cn/dotnet/csharp/language-reference/compiler-messages/cs4014。
 }
 
 void UpdateCount()
@@ -104,7 +104,7 @@ void UpdateCount()
     tasksComplete = tasks.Count(x => x.Status == SigninTask.TaskStatus.Complete);
     tasksWaiting = tasks.Count(x => x.Status == SigninTask.TaskStatus.Waiting);
     tasksAborted = tasks.Count(x => x.Status == SigninTask.TaskStatus.Aborted);
-    Console.Title = $"{appVer} | {tasksRunning} 运行，{tasksComplete} 完成，{tasksWaiting} 等待，{tasksAborted} 终止";
+    Console.Title = $"{appVer} | {tasksRunning} 运行，{tasksComplete} 完成，{tasksWaiting} 等待，{tasksAborted} 中止";
 }
 
 void RunNextTask()

@@ -126,6 +126,12 @@ namespace YBNAS
                 await Login(rsaPubKey);
                 string vr = await GetVr();
                 _user = await Auth(vr, csrfToken);
+                if (string.IsNullOrEmpty(_user.PersonId)) // 校本化认证失败。
+                {
+                    _status = TaskStatus.Aborted;
+                    OnError?.Invoke(this);
+                    return;
+                }
                 if (_user.UniversityName != "黑龙江科技大学")
                 {
                     _logger.Warn($"任务 {_taskGuid} - 本程序可能不适用于您的学校，不过我会试试。");
@@ -135,7 +141,13 @@ namespace YBNAS
                     _logger.Info($"任务 {_taskGuid} - 未提供合适的设备信息，将从接口获取。");
                     _device = await GetDevice(csrfToken); // 未提供合适的设备信息，从接口获取。
                 }
-                await Signin(csrfToken, _device);
+                bool signinStatus = await Signin(csrfToken, _device);
+                if (!signinStatus) // 签到失败。
+                {
+                    _status = TaskStatus.Aborted;
+                    OnError?.Invoke(this);
+                    return;
+                }
                 _status = TaskStatus.Complete;
                 _logger.Debug($"任务 {_taskGuid} - 运行完成。");
                 OnComplete?.Invoke(this);
@@ -236,6 +248,7 @@ namespace YBNAS
             if (authResCode != 0)
             {
                 _logger.Error($"任务 {_taskGuid} - 校本化认证失败，服务端返回消息：{authResMsg}。");
+                return new User();
             }
             JsonNode authResData = authResNode["data"]!;
             User user = new() { UniversityName = (string?)authResData["UniversityName"], UniversityId = (string?)authResData["UniversityId"], PersonName = (string?)authResData["PersonName"], PersonId = (string?)authResData["PersonId"] };
@@ -276,7 +289,7 @@ namespace YBNAS
             return device;
         }
 
-        private async Task Signin(string csrfToken, Device device)
+        private async Task<bool> Signin(string csrfToken, Device device)
         {
             _logger.Info($"任务 {_taskGuid} - 晚点签到，启动！");
             var reqSignin = "https://api.uyiban.com/"
@@ -294,10 +307,12 @@ namespace YBNAS
             if (signinResCode != 0)
             {
                 _logger.Error($"任务 {_taskGuid} - 签到失败，服务端返回消息：{signinResMsg}。");
+                return false;
             }
             else
             {
                 _logger.Info($"任务 {_taskGuid} - 签到成功！Have a safe day.");
+                return true;
             }
         }
     }

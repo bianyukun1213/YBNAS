@@ -167,7 +167,7 @@ namespace YBNAS
             var reqGetRsaPubKey = "https://oauth.yiban.cn/" // 留出 BaseUrl，Flurl.Http 给相同域的请求复用同一个 HttpClient。
                 .AppendPathSegment("code/html") // 在此附加路径。
                 .SetQueryParams(new { client_id = "95626fa3080300ea" /* 不知道是啥，写死的。 */, redirect_uri = "https://f.yiban.cn/iapp7463" })
-                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "Yiban", AppVersion = "5.0" }) // User_Agent 会自动变成 User-Agent。
+                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "YiBan yiban_android", AppVersion = "5.0" }) // User_Agent 会自动变成 User-Agent，签到接口（校本化 H5）要求 UA 包含 yiban_android，Android 客户端接口（暂时未用）要求 UA 包含 YiBan。 
                                                                                                                 //.WithHeaders(new DefaultHeaders()) 把 header 提取成一个默认的结构体，行不通……抓包发现没有这些数据。
                 .WithCookies(out _jar); // 存入 cookie，供以后的请求携带。
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqGetRsaPubKey.Url}……");
@@ -191,7 +191,7 @@ namespace YBNAS
             _logger.Info($"任务 {_taskGuid} - 登录……");
             var reqLogin = "https://oauth.yiban.cn/"
                 .AppendPathSegment("code/usersure")
-                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "Yiban", AppVersion = "5.0" })
+                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "YiBan yiban_android", AppVersion = "5.0" })
                 .WithCookies(_jar);
             var loginBody = new { oauth_uname = _account, oauth_upwd = pwdEncoded, client_id = "95626fa3080300ea", redirect_uri = "https://f.yiban.cn/iapp7463" };
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqLogin.Url}，loginBody：{JsonConvert.SerializeObject(loginBody)}……");
@@ -205,7 +205,7 @@ namespace YBNAS
             var reqGetVr = "https://f.yiban.cn/"
                 .AppendPathSegment("iframe/index")
                 .SetQueryParams(new { act = "iapp7463" })
-                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "Yiban", AppVersion = "5.0" })
+                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "YiBan yiban_android", AppVersion = "5.0" })
                 .WithCookies(_jar);
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqGetVr.Url}……");
             var resGetVr = await reqGetVr.WithAutoRedirect(false).GetAsync(); // 不要重定向，以便从响应头读取 verify_request。
@@ -237,7 +237,7 @@ namespace YBNAS
             var reqAuth = "https://api.uyiban.com/"
                 .AppendPathSegment("base/c/auth/yiban")
                 .SetQueryParams(new { verifyRequest = vr, CSRF = csrfToken })
-                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "Yiban", AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "YiBan yiban_android", AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqAuth.Url}……");
             var authContent = await reqAuth.GetStringAsync();
@@ -263,7 +263,7 @@ namespace YBNAS
             var reqGetDevice = "https://api.uyiban.com/"
                 .AppendPathSegment("device/student/index/getState")
                 .SetQueryParams(new { CSRF = csrfToken })
-                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "Yiban", AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "YiBan yiban_android", AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqGetDevice.Url}……");
             var deviceContent = await reqGetDevice.GetStringAsync();
@@ -295,11 +295,25 @@ namespace YBNAS
             var reqSignin = "https://api.uyiban.com/"
                 .AppendPathSegment("nightAttendance/student/index/signIn")
                 .SetQueryParams(new { CSRF = csrfToken })
-                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "Yiban", AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "YiBan yiban_android", AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}", Host = "api.uyiban.com" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
             var signinBody = new { OutState = "1", device.Code, device.PhoneModel, SignInfo = JsonConvert.SerializeObject(new { Reason = "", AttachmentFileName = "", LngLat = _position, Address = _address }) }; // SignInfo 是字符串。
+            
+            // 还是哪里不对签不上。
+            
+            //var signinBody = new { OutState = "1", device.Code, device.PhoneModel, SignInfo = 1 }; // SignInfo 是字符串。
+            //var signinBody = new { OutState = "1", device.Code, device.PhoneModel, SignInfo = "{\"Reason\":\"\",\"AttachmentFileName\":\"\",\"LngLat\":\"126.65892872841522,45.820275900282255\",\"Address\":\"黑龙江省哈尔滨市松北区浦源路2298号靠近黑龙江科技大学\"}" }; // SignInfo 是字符串。
+            //var signinBody = new { OutState = "1", device.Code, device.PhoneModel, SignInfo = new { Reason = "", AttachmentFileName = "", LngLat = _position, Address = _address } }; // SignInfo 是字符串。
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqSignin.Url}，SigninBody：{JsonConvert.SerializeObject(signinBody)}……");
+            //string signinContent = await reqSignin.PostMultipartAsync(mp =>
+                //mp.AddUrlEncoded("OutState", "1")
+                //.AddUrlEncoded("Code", device.Code)
+                //.AddUrlEncoded("PhoneModel", device.PhoneModel)
+                //.AddString("SignInfo", JsonConvert.SerializeObject(new { Reason = "", AttachmentFileName = "", LngLat = _position, Address = _address }))
+            //mp.AddStringParts(signinBody)
+            //).ReceiveString(); // 待测试。
             string signinContent = await reqSignin.PostUrlEncodedAsync(signinBody).ReceiveString();
+            //string signinContent = await reqSignin.PostAsync(signinBody).ReceiveString();
             _logger.Debug($"任务 {_taskGuid} - 收到响应：{signinContent}。");
             JsonNode signinResNode = JsonNode.Parse(signinContent!)!;
             int signinResCode = (int)signinResNode["code"]!;

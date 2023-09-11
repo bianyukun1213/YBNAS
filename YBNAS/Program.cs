@@ -34,7 +34,10 @@ try
     confs = JsonConvert.DeserializeObject<List<SingleConfig>>(configStr)!;
     foreach (SingleConfig config in confs)
     {
-        logger.Debug($"解析配置 {config}……");
+
+        SingleConfig tempSc = JsonConvert.DeserializeObject<SingleConfig>(JsonConvert.SerializeObject(config))!;
+        tempSc.Password = "<已抹除>";
+        logger.Debug($"解析配置 {tempSc}……"); // 在日志中抹除密码。
         if (string.IsNullOrEmpty(config.Account))
             continue;
         if (string.IsNullOrEmpty(config.Password))

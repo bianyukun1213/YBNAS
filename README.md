@@ -1,12 +1,14 @@
 # Hollis 的易班校本化晚点签到程序
 
+&emsp;&emsp;**正在开发，当前仍不可用**。
+
 &emsp;&emsp;适用于黑龙江科技大学，其他学校未测试。
 
 &emsp;&emsp;感谢 [yiban](https://github.com/Sricor/yiban) 项目提供参考。
 
 ## 安装
 
-&emsp;&emsp;本程序基于 .NET 6.0 框架，可[在此下载](https://dotnet.microsoft.com/zh-cn/download/dotnet/6.0)，根据架构选择相应的“.NET 桌面运行时”安装文件。
+&emsp;&emsp;~~本程序基于 .NET 6.0 框架，可[在此下载](https://dotnet.microsoft.com/zh-cn/download/dotnet/6.0)，根据架构选择相应的“.NET 桌面运行时”安装文件。~~
 
 ## 配置
 

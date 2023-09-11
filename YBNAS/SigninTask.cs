@@ -132,15 +132,19 @@ namespace YBNAS
                     OnError?.Invoke(this);
                     return;
                 }
+                _logger.Info($"任务 {_taskGuid} - 认证成功，{_user.PersonName}同学！");
                 if (_user.UniversityName != "黑龙江科技大学")
-                {
                     _logger.Warn($"任务 {_taskGuid} - 本程序可能不适用于您的学校，不过我会试试。");
-                }
                 if (string.IsNullOrEmpty(_device.Code) || string.IsNullOrEmpty(_device.PhoneModel))
                 {
                     _logger.Info($"任务 {_taskGuid} - 未提供合适的设备信息，将从接口获取。");
                     _device = await GetDevice(csrfToken); // 未提供合适的设备信息，从接口获取。
+                    if (_device.PhoneModel != string.Empty && _device.Code != string.Empty)
+                        _logger.Info($"任务 {_taskGuid} - 您使用的是 {_device.PhoneModel}（{_device.Code}），好眼光！");
+                    else
+                        _logger.Info($"任务 {_taskGuid} - 设备信息缺失。Do you guys not have phones?");
                 }
+                await GetSigninTask(csrfToken);
                 bool signinStatus = await Signin(csrfToken, _device);
                 if (!signinStatus) // 签到失败。
                 {
@@ -148,6 +152,7 @@ namespace YBNAS
                     OnError?.Invoke(this);
                     return;
                 }
+                _logger.Info($"任务 {_taskGuid} - 签到成功！Have a safe day.");
                 _status = TaskStatus.Complete;
                 _logger.Debug($"任务 {_taskGuid} - 运行完成。");
                 OnComplete?.Invoke(this);
@@ -168,7 +173,7 @@ namespace YBNAS
                 .AppendPathSegment("code/html") // 在此附加路径。
                 .SetQueryParams(new { client_id = "95626fa3080300ea" /* 不知道是啥，写死的。 */, redirect_uri = "https://f.yiban.cn/iapp7463" })
                 .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "YiBan", AppVersion = "5.0" }) // User_Agent 会自动变成 User-Agent。 
-                                                                                                                              //.WithHeaders(new DefaultHeaders()) 把 header 提取成一个默认的结构体，行不通……抓包发现没有这些数据。
+                                                                                                                //.WithHeaders(new DefaultHeaders()) 把 header 提取成一个默认的结构体，行不通……抓包发现没有这些数据。
                 .WithCookies(out _jar); // 存入 cookie，供以后的请求携带。
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqGetRsaPubKey.Url}……");
             string rsaPubKeyContent = await reqGetRsaPubKey.GetStringAsync();
@@ -197,6 +202,7 @@ namespace YBNAS
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqLogin.Url}，loginBody：{JsonConvert.SerializeObject(loginBody)}……");
             string loginContent = await reqLogin.PostUrlEncodedAsync(loginBody).ReceiveString();
             _logger.Debug($"任务 {_taskGuid} - 收到响应：{loginContent}。");
+            //_logger.Debug($"任务 {_taskGuid} - 已尝试登录。");
         }
 
         private async Task<string> GetVr()
@@ -253,7 +259,7 @@ namespace YBNAS
             JsonNode authResData = authResNode["data"]!;
             User user = new() { UniversityName = (string?)authResData["UniversityName"], UniversityId = (string?)authResData["UniversityId"], PersonName = (string?)authResData["PersonName"], PersonId = (string?)authResData["PersonId"] };
             _logger.Debug($"任务 {_taskGuid} - 解析出用户信息：{user}。");
-            _logger.Info($"任务 {_taskGuid} - 认证成功，{user.PersonName}同学！");
+            //_logger.Info($"任务 {_taskGuid} - 认证成功，{user.PersonName}同学！");
             return user;
         }
 
@@ -274,19 +280,42 @@ namespace YBNAS
             if (deviceResCode != 0)
             {
                 _logger.Error($"任务 {_taskGuid} - 获取授权设备失败，服务端返回消息：{deviceResMsg}。");
+                return new Device();
             }
             JsonNode deviceResData = deviceResNode["data"]!;
             Device device = new() { Code = (string?)deviceResData["Code"], PhoneModel = (string?)deviceResData["PhoneModel"] };
             _logger.Debug($"任务 {_taskGuid} - 解析出授权设备：{device}。");
-            if (device.PhoneModel != string.Empty && device.Code != string.Empty)
-            {
-                _logger.Info($"任务 {_taskGuid} - 您使用的是 {device.PhoneModel}（{device.Code}），好眼光！");
-            }
-            else
-            {
-                _logger.Info($"任务 {_taskGuid} - 设备信息缺失。Do you guys not have phones?");
-            }
+            //if (device.PhoneModel != string.Empty && device.Code != string.Empty)
+            //{
+            //    _logger.Info($"任务 {_taskGuid} - 您使用的是 {device.PhoneModel}（{device.Code}），好眼光！");
+            //}
+            //else
+            //{
+            //    _logger.Info($"任务 {_taskGuid} - 设备信息缺失。Do you guys not have phones?");
+            //}
             return device;
+        }
+
+        private async Task GetSigninTask(string csrfToken)
+        {
+            _logger.Info($"任务 {_taskGuid} - 获取签到任务……");
+            var reqSigninTask = "https://api.uyiban.com/"
+                .AppendPathSegment("nightAttendance/student/index/signPosition")
+                .SetQueryParams(new { CSRF = csrfToken })
+                .WithHeaders(new { Origin = "https://app.uyiban.com" /* 获取签到任务 origin 是 app…… */, User_Agent = "yiban_android" /* 获取签到任务 UA 包含 yiban_android。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .WithCookies(_jar);
+            _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqSigninTask.Url}……");
+            var taskContent = await reqSigninTask.GetStringAsync();
+            _logger.Debug($"任务 {_taskGuid} - 收到响应：{taskContent}");
+            JsonNode taskResNode = JsonNode.Parse(taskContent!)!;
+            int taskResCode = (int)taskResNode["code"]!;
+            string taskResMsg = (string)taskResNode["msg"]!;
+            if (taskResCode != 0)
+            {
+                _logger.Error($"任务 {_taskGuid} - 获取签到任务失败，服务端返回消息：{taskResMsg}。");
+                return;
+            }
+            //_logger.Debug($"任务 {_taskGuid} - 取得签到任务。");
         }
 
         private async Task<bool> Signin(string csrfToken, Device device)
@@ -297,7 +326,7 @@ namespace YBNAS
                 .SetQueryParams(new { CSRF = csrfToken })
                 .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = "yiban_android" /* 签到 UA 包含 yiban_android。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
-            var signinBody = new { OutState = "1", device.Code, device.PhoneModel, SignInfo = JsonConvert.SerializeObject(new { Reason = "", AttachmentFileName = "", LngLat = _position, Address = _address }) }; // SignInfo 是字符串。
+            var signinBody = new { OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonConvert.SerializeObject(new { Reason = "", AttachmentFileName = "", LngLat = _position, Address = _address }) }; // SignInfo 是字符串。
 
             // 还是哪里不对签不上，如果先在 app 查看签到页面就能签上。也许签到前需要先请求一次 signPosition 接口？
 
@@ -312,11 +341,12 @@ namespace YBNAS
                 _logger.Error($"任务 {_taskGuid} - 签到失败，服务端返回消息：{signinResMsg}。");
                 return false;
             }
-            else
-            {
-                _logger.Info($"任务 {_taskGuid} - 签到成功！Have a safe day.");
-                return true;
-            }
+            return true;
+            //else
+            //{
+            //    _logger.Info($"任务 {_taskGuid} - 签到成功！Have a safe day.");
+            //    return true;
+            //}
         }
     }
 }

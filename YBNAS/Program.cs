@@ -67,9 +67,7 @@ try
     }
     logger.Info($"共 {confs.Count} 条配置，{tasks.Count} 条可用且已解析。");
     if (tasks.Count == 0)
-    {
         logger.Warn($"当前时间下无可用配置。");
-    }
 }
 catch (Exception ex)
 {
@@ -95,9 +93,7 @@ foreach (var item in tasks)
 for (int i = 0; i < tasks.Count; i++)
 {
     if (i > 3)
-    {
         break;
-    }
     var res = tasks[i].Run(); // 消除 CS4014 警告，https://learn.microsoft.com/zh-cn/dotnet/csharp/language-reference/compiler-messages/cs4014。
 }
 

@@ -57,7 +57,6 @@ namespace YBNAS
         private readonly int _endHour = 0;
         private readonly int _endMin = 0;
 
-        //private User _user = new();
         private User _user;
         private Device _device;
 
@@ -144,6 +143,7 @@ namespace YBNAS
                     else
                         _logger.Info($"任务 {_taskGuid} - 设备信息缺失。Do you guys not have phones?");
                 }
+                // 签到之前必须先获取签到任务，可能会设定 cookie，否则会判非法签到。
                 await GetSigninTask(csrfToken);
                 bool signinStatus = await Signin(csrfToken, _device);
                 if (!signinStatus) // 签到失败。
@@ -202,7 +202,6 @@ namespace YBNAS
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqLogin.Url}，loginBody：{JsonConvert.SerializeObject(loginBody)}……");
             string loginContent = await reqLogin.PostUrlEncodedAsync(loginBody).ReceiveString();
             _logger.Debug($"任务 {_taskGuid} - 收到响应：{loginContent}。");
-            //_logger.Debug($"任务 {_taskGuid} - 已尝试登录。");
         }
 
         private async Task<string> GetVr()
@@ -259,7 +258,6 @@ namespace YBNAS
             JsonNode authResData = authResNode["data"]!;
             User user = new() { UniversityName = (string?)authResData["UniversityName"], UniversityId = (string?)authResData["UniversityId"], PersonName = (string?)authResData["PersonName"], PersonId = (string?)authResData["PersonId"] };
             _logger.Debug($"任务 {_taskGuid} - 解析出用户信息：{user}。");
-            //_logger.Info($"任务 {_taskGuid} - 认证成功，{user.PersonName}同学！");
             return user;
         }
 
@@ -285,14 +283,6 @@ namespace YBNAS
             JsonNode deviceResData = deviceResNode["data"]!;
             Device device = new() { Code = (string?)deviceResData["Code"], PhoneModel = (string?)deviceResData["PhoneModel"] };
             _logger.Debug($"任务 {_taskGuid} - 解析出授权设备：{device}。");
-            //if (device.PhoneModel != string.Empty && device.Code != string.Empty)
-            //{
-            //    _logger.Info($"任务 {_taskGuid} - 您使用的是 {device.PhoneModel}（{device.Code}），好眼光！");
-            //}
-            //else
-            //{
-            //    _logger.Info($"任务 {_taskGuid} - 设备信息缺失。Do you guys not have phones?");
-            //}
             return device;
         }
 
@@ -315,7 +305,6 @@ namespace YBNAS
                 _logger.Error($"任务 {_taskGuid} - 获取签到任务失败，服务端返回消息：{taskResMsg}。");
                 return;
             }
-            //_logger.Debug($"任务 {_taskGuid} - 取得签到任务。");
         }
 
         private async Task<bool> Signin(string csrfToken, Device device)
@@ -327,9 +316,6 @@ namespace YBNAS
                 .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = "yiban_android" /* 签到 UA 包含 yiban_android。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
             var signinBody = new { OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonConvert.SerializeObject(new { Reason = "", AttachmentFileName = "", LngLat = _position, Address = _address }) }; // SignInfo 是字符串。
-
-            // 还是哪里不对签不上，如果先在 app 查看签到页面就能签上。也许签到前需要先请求一次 signPosition 接口？
-
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqSignin.Url}，SigninBody：{JsonConvert.SerializeObject(signinBody)}……");
             string signinContent = await reqSignin.PostUrlEncodedAsync(signinBody).ReceiveString();
             _logger.Debug($"任务 {_taskGuid} - 收到响应：{signinContent}。");
@@ -342,11 +328,6 @@ namespace YBNAS
                 return false;
             }
             return true;
-            //else
-            //{
-            //    _logger.Info($"任务 {_taskGuid} - 签到成功！Have a safe day.");
-            //    return true;
-            //}
         }
     }
 }

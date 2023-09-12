@@ -82,7 +82,7 @@ int tasksSkipped = 0;
 int tasksWaiting = tasks.Count;
 int tasksAborted = 0;
 
-UpdateCount();
+UpdateCounts();
 
 foreach (var item in tasks)
 {
@@ -99,7 +99,7 @@ for (int i = 0; i < tasks.Count; i++)
     var res = tasks[i].Run(); // 消除 CS4014 警告，https://learn.microsoft.com/zh-cn/dotnet/csharp/language-reference/compiler-messages/cs4014。
 }
 
-void UpdateCount()
+void UpdateCounts()
 {
     tasksRunning = tasks.Count(x => x.Status == SigninTask.TaskStatus.Running);
     tasksComplete = tasks.Count(x => x.Status == SigninTask.TaskStatus.Complete);
@@ -117,18 +117,18 @@ void RunNextTask()
 
 void St_OnRun(SigninTask task)
 {
-    UpdateCount();
+    UpdateCounts();
 }
 
 void St_OnComplete(SigninTask task)
 {
-    UpdateCount();
+    UpdateCounts();
     RunNextTask();
 }
 
 void St_OnError(SigninTask task)
 {
-    UpdateCount();
+    UpdateCounts();
     if (task.RunCount < 2)
     {
         logger.Warn($"任务 {task.TaskGuid} 出错，将重试。");

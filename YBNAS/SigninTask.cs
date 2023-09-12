@@ -18,7 +18,7 @@ namespace YBNAS
         public string? UniversityName { get; set; }
         public string? UniversityId { get; set; }
         public string? PersonName { get; set; }
-        public string? PersonId { get; set; }
+        public string PersonId { get; set; } // PersonId 总不该是 null 吧……
         public override readonly string ToString()
         {
             return JsonConvert.SerializeObject(this);
@@ -35,6 +35,19 @@ namespace YBNAS
         }
     }
 
+    struct SigninInfo
+    {
+        public bool FromServer { get; set; }
+        public int State { get; set; } // 不该是 null。
+        public long BeginTime { get; set; } // 不该是 null。
+        public long EndTime { get; set; } // 不该是 null。
+        public bool ShouldSigninToday { get; set; } // 不该是 null。
+        public override readonly string ToString()
+        {
+            return JsonConvert.SerializeObject(this);
+        }
+    }
+
     internal class SigninTask
     {
         public enum TaskStatus
@@ -42,6 +55,7 @@ namespace YBNAS
             Waiting,
             Running,
             Complete,
+            Skipped,
             Aborted
         }
 
@@ -66,8 +80,10 @@ namespace YBNAS
         public event RunHandler? OnRun;
         public delegate void CompleteHandler(SigninTask st);
         public event CompleteHandler? OnComplete;
+        public delegate void SkipHandler(SigninTask st);
+        public event SkipHandler? OnSkip;
         public delegate void ErrorHandler(SigninTask st);
-        public event CompleteHandler? OnError;
+        public event ErrorHandler? OnError;
 
         private CookieJar _jar = new();
         private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
@@ -139,20 +155,45 @@ namespace YBNAS
                     _logger.Info($"任务 {_taskGuid} - 未提供合适的设备信息，将从接口获取。");
                     _device = await GetDevice(csrfToken); // 未提供合适的设备信息，从接口获取。
                     if (_device.PhoneModel != string.Empty && _device.Code != string.Empty)
-                        _logger.Info($"任务 {_taskGuid} - 您使用的是 {_device.PhoneModel}（{_device.Code}），好眼光！");
+                        _logger.Info($"任务 {_taskGuid} - {User.PersonName}使用的是 {_device.PhoneModel}（{_device.Code}），好眼光！");
                     else
                         _logger.Info($"任务 {_taskGuid} - 设备信息缺失。Do you guys not have phones?");
                 }
-                // 签到之前必须先获取签到任务，可能会设定 cookie，否则会判非法签到。
-                await GetSigninTask(csrfToken);
+                // 签到之前必须先获取签到信息，可能会设定 cookie，否则会判非法签到。
+                SigninInfo info = await GetSigninInfo(csrfToken);
+                if (!info.FromServer)
+                {
+                    _status = TaskStatus.Aborted;
+                    _logger.Error($"任务 {_taskGuid} - 运行出错。");
+                    OnError?.Invoke(this);
+                    return;
+                }
+                if (info.State == 3) // 表示已签到。
+                {
+                    _logger.Info($"任务 {_taskGuid} - {User.PersonName}今天已签到，将跳过。");
+                    _status = TaskStatus.Skipped;
+                    _logger.Debug($"任务 {_taskGuid} - 跳过运行。");
+                    OnSkip?.Invoke(this);
+                    return;
+                }
+                long curTimeSeconds = DateTimeOffset.Now.ToUnixTimeSeconds();
+                if (curTimeSeconds < info.BeginTime || curTimeSeconds > info.EndTime)
+                {
+                    _logger.Info($"任务 {_taskGuid} - 不在{User.PersonName}学校{User.UniversityName}要求的签到时间段内，将跳过。"); // 最好让用户一眼知道是哪个人在哪个学校因为未到时间签到失败。
+                    _status = TaskStatus.Skipped;
+                    _logger.Debug($"任务 {_taskGuid} - 跳过运行。");
+                    OnSkip?.Invoke(this);
+                    return;
+                }
                 bool signinStatus = await Signin(csrfToken, _device);
                 if (!signinStatus) // 签到失败。
                 {
                     _status = TaskStatus.Aborted;
+                    _logger.Error($"任务 {_taskGuid} - 运行出错。");
                     OnError?.Invoke(this);
                     return;
                 }
-                _logger.Info($"任务 {_taskGuid} - 签到成功！Have a safe day.");
+                _logger.Info($"任务 {_taskGuid} - {User.PersonName}签到成功！Have a safe day.");
                 _status = TaskStatus.Complete;
                 _logger.Debug($"任务 {_taskGuid} - 运行完成。");
                 OnComplete?.Invoke(this);
@@ -256,7 +297,7 @@ namespace YBNAS
                 return new User();
             }
             JsonNode authResData = authResNode["data"]!;
-            User user = new() { UniversityName = (string?)authResData["UniversityName"], UniversityId = (string?)authResData["UniversityId"], PersonName = (string?)authResData["PersonName"], PersonId = (string?)authResData["PersonId"] };
+            User user = new() { UniversityName = (string?)authResData["UniversityName"], UniversityId = (string?)authResData["UniversityId"], PersonName = (string?)authResData["PersonName"], PersonId = (string)authResData["PersonId"]! };
             _logger.Debug($"任务 {_taskGuid} - 解析出用户信息：{user}。");
             return user;
         }
@@ -286,25 +327,29 @@ namespace YBNAS
             return device;
         }
 
-        private async Task GetSigninTask(string csrfToken)
+        private async Task<SigninInfo> GetSigninInfo(string csrfToken)
         {
-            _logger.Info($"任务 {_taskGuid} - 获取签到任务……");
-            var reqSigninTask = "https://api.uyiban.com/"
+            _logger.Info($"任务 {_taskGuid} - 获取签到信息……");
+            var reqSigninInfo = "https://api.uyiban.com/"
                 .AppendPathSegment("nightAttendance/student/index/signPosition")
                 .SetQueryParams(new { CSRF = csrfToken })
-                .WithHeaders(new { Origin = "https://app.uyiban.com" /* 获取签到任务 origin 是 app…… */, User_Agent = "yiban_android" /* 获取签到任务 UA 包含 yiban_android。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .WithHeaders(new { Origin = "https://app.uyiban.com" /* 获取签到信息 origin 是 app…… */, User_Agent = "yiban_android" /* 获取签到信息 UA 包含 yiban_android。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
-            _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqSigninTask.Url}……");
-            var taskContent = await reqSigninTask.GetStringAsync();
-            _logger.Debug($"任务 {_taskGuid} - 收到响应：{taskContent}");
-            JsonNode taskResNode = JsonNode.Parse(taskContent!)!;
-            int taskResCode = (int)taskResNode["code"]!;
-            string taskResMsg = (string)taskResNode["msg"]!;
-            if (taskResCode != 0)
+            _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqSigninInfo.Url}……");
+            var infoContent = await reqSigninInfo.GetStringAsync();
+            _logger.Debug($"任务 {_taskGuid} - 收到响应：{infoContent}");
+            JsonNode infoResNode = JsonNode.Parse(infoContent!)!;
+            int infoResCode = (int)infoResNode["code"]!;
+            string infoResMsg = (string)infoResNode["msg"]!;
+            if (infoResCode != 0)
             {
-                _logger.Error($"任务 {_taskGuid} - 获取签到任务失败，服务端返回消息：{taskResMsg}。");
-                return;
+                _logger.Error($"任务 {_taskGuid} - 获取签到信息失败，服务端返回消息：{infoResMsg}。");
+                return new();
             }
+            JsonNode infoResData = infoResNode["data"]!;
+            SigninInfo signinInfo = new() { FromServer = true /* 标记已从服务器获取到签到信息，区别于默认的签到信息。 */, State = (int)infoResData["State"]!, BeginTime = (int)infoResData["Range"]!["StartTime"]!, EndTime = (int)infoResData["Range"]!["EndTime"]!, ShouldSigninToday = (((int)infoResData["Range"]!["SignDay"]!) == 0) ? false : true };
+            _logger.Debug($"任务 {_taskGuid} - 解析出签到信息：{signinInfo}。");
+            return signinInfo;
         }
 
         private async Task<bool> Signin(string csrfToken, Device device)

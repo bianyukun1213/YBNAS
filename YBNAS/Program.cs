@@ -78,6 +78,7 @@ catch (Exception ex)
 
 int tasksRunning = 0;
 int tasksComplete = 0;
+int tasksSkipped = 0;
 int tasksWaiting = tasks.Count;
 int tasksAborted = 0;
 
@@ -87,6 +88,7 @@ foreach (var item in tasks)
 {
     item.OnRun += St_OnRun;
     item.OnComplete += St_OnComplete;
+    item.OnSkip += St_OnComplete; // 目前跳过和完成同样处理。
     item.OnError += St_OnError;
 }
 
@@ -101,9 +103,10 @@ void UpdateCount()
 {
     tasksRunning = tasks.Count(x => x.Status == SigninTask.TaskStatus.Running);
     tasksComplete = tasks.Count(x => x.Status == SigninTask.TaskStatus.Complete);
+    tasksSkipped = tasks.Count(x => x.Status == SigninTask.TaskStatus.Skipped);
     tasksWaiting = tasks.Count(x => x.Status == SigninTask.TaskStatus.Waiting);
     tasksAborted = tasks.Count(x => x.Status == SigninTask.TaskStatus.Aborted);
-    Console.Title = $"{appVer} | {tasksRunning} 运行，{tasksComplete} 完成，{tasksWaiting} 等待，{tasksAborted} 中止";
+    Console.Title = $"{appVer} | {tasksRunning} 运行，{tasksComplete} 完成，{tasksSkipped} 跳过，{tasksWaiting} 等待，{tasksAborted} 中止";
 }
 
 void RunNextTask()

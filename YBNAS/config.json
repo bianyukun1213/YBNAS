@@ -1,6 +1,6 @@
 ﻿{
   "RunningTasksLimit": 4,
-  "RandomInterval": true,
+  "RandomDelay": true,
   "SigninConfigs": [
     {
       "Account": "账号（手机号码）",

@@ -40,8 +40,8 @@ try
         Config.RunningTasksLimit = 4;
     }
     logger.Debug($"配置 RunningTasksLimit: {Config.RunningTasksLimit}。");
-    Config.RandomDelay = confRoot["RandomInterval"].Deserialize<bool>();
-    logger.Debug($"配置 RandomInterval: {Config.RandomDelay}。");
+    Config.RandomDelay = confRoot["RandomDelay"].Deserialize<bool>();
+    logger.Debug($"配置 RandomDelay: {Config.RandomDelay}。");
     Config.SigninConfigs = confRoot["SigninConfigs"].Deserialize<List<SigninConfig>>()!;
     foreach (SigninConfig conf in Config.SigninConfigs)
     {

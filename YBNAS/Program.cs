@@ -10,68 +10,79 @@ using System.Net;
 using System.Reflection;
 using System.Text.Json.Nodes;
 using YBNAS;
+using System.Text.Json;
 
 var asm = System.Reflection.Assembly.GetExecutingAssembly();
 string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
 
 Logger logger = NLog.LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
-logger.Info("程序启动。");
+logger.Info($"程序启动。");
 logger.Info($"{appVer} 由 Hollis 编写，源代码及版本更新见 https://github.com/bianyukun1213/YBNAS。");
 
 DateTime curDateTime = DateTime.Now;
-List<SingleConfig> confs;
 List<SigninTask> tasks = new();
 
 try
 {
     string configPath = Path.GetDirectoryName(asm.Location)! + @"/config.json";
-    //if (!File.Exists(configPath))
-    //{
-    //    logger.Error("配置文件不存在。");
-    //    return;
-    //}
+    if (!File.Exists(configPath))
+    {
+        logger.Fatal($"配置文件不存在。");
+        return;
+    }
     string configStr = File.ReadAllText(configPath);
-    confs = JsonConvert.DeserializeObject<List<SingleConfig>>(configStr)!;
-    foreach (SingleConfig config in confs)
+    logger.Debug($"解析配置字符串……");
+    JsonNode confRoot = JsonNode.Parse(configStr)!;
+    Config.RunningTasksLimit = confRoot["RunningTasksLimit"].Deserialize<int>();
+    if (Config.RunningTasksLimit < 1)
+    {
+        logger.Error($"RunningTasksLimit 不应小于 1，将使用默认值 4。");
+        Config.RunningTasksLimit = 4;
+    }
+    logger.Debug($"配置 RunningTasksLimit: {Config.RunningTasksLimit}。");
+    Config.RandomDelay = confRoot["RandomInterval"].Deserialize<bool>();
+    logger.Debug($"配置 RandomInterval: {Config.RandomDelay}。");
+    Config.SigninConfigs = confRoot["SigninConfigs"].Deserialize<List<SigninConfig>>()!;
+    foreach (SigninConfig conf in Config.SigninConfigs)
     {
 
-        SingleConfig tempSc = JsonConvert.DeserializeObject<SingleConfig>(JsonConvert.SerializeObject(config))!;
+        SigninConfig tempSc = JsonConvert.DeserializeObject<SigninConfig>(JsonConvert.SerializeObject(conf))!;
         tempSc.Password = "<已抹除>";
-        logger.Debug($"解析配置 {tempSc}……"); // 在日志中抹除密码。
-        if (string.IsNullOrEmpty(config.Account))
+        logger.Debug($"解析签到配置 {tempSc}……"); // 在日志中抹除密码。
+        if (string.IsNullOrEmpty(conf.Account))
             continue;
-        if (string.IsNullOrEmpty(config.Password))
+        if (string.IsNullOrEmpty(conf.Password))
             continue;
-        if (config.Position!.Count != 2)
+        if (conf.Position!.Count != 2)
             continue;
-        if (string.IsNullOrEmpty(config.Address))
+        if (string.IsNullOrEmpty(conf.Address))
             continue;
-        if (config.TimeSpan!.Count != 4)
+        if (conf.TimeSpan!.Count != 4)
             continue;
-        int confBegTime = config.TimeSpan![0] * 60 + config.TimeSpan![1];
-        int confEndTime = config.TimeSpan![2] * 60 + config.TimeSpan![3];
+        int confBegTime = conf.TimeSpan![0] * 60 + conf.TimeSpan![1];
+        int confEndTime = conf.TimeSpan![2] * 60 + conf.TimeSpan![3];
         int curTime = curDateTime.Hour * 60 + curDateTime.Minute;
         if (curTime < confBegTime || curTime > confEndTime)
             continue;
         tasks.Add(new(
-            config.Account is null ? "" : config.Account,
-            config.Password is null ? "" : config.Password,
-            $"{config.Position![0]},{config.Position![1]}",
-            config.Address is null ? "" : config.Address,
-            config.TimeSpan![0],
-            config.TimeSpan![1],
-            config.TimeSpan![2],
-            config.TimeSpan![3],
-            config.Device
+            conf.Account is null ? "" : conf.Account,
+            conf.Password is null ? "" : conf.Password,
+            $"{conf.Position![0]},{conf.Position![1]}",
+            conf.Address is null ? "" : conf.Address,
+            conf.TimeSpan![0],
+            conf.TimeSpan![1],
+            conf.TimeSpan![2],
+            conf.TimeSpan![3],
+            conf.Device
             ));
     }
-    logger.Info($"共 {confs.Count} 条配置，{tasks.Count} 条可用且已解析。");
+    logger.Info($"共 {Config.SigninConfigs.Count} 条签到配置，{tasks.Count} 条可用且已解析。");
     if (tasks.Count == 0)
-        logger.Warn($"当前时间下无可用配置。");
+        logger.Warn($"当前时间下无可用签到配置。");
 }
 catch (Exception ex)
 {
-    logger.Error(ex, $"解析配置文件时出错。");
+    logger.Fatal(ex, $"解析配置文件时出错。");
     return;
     //throw;
 }
@@ -94,7 +105,7 @@ foreach (var item in tasks)
 
 for (int i = 0; i < tasks.Count; i++)
 {
-    if (i > 3)
+    if (i >= Config.RunningTasksLimit) // 应用初始同时运行任务数限制。
         break;
     var res = tasks[i].Run(); // 消除 CS4014 警告，https://learn.microsoft.com/zh-cn/dotnet/csharp/language-reference/compiler-messages/cs4014。
 }

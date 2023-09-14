@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
@@ -121,6 +122,12 @@ namespace YBNAS
             _status = TaskStatus.Waiting;
         }
 
+        private static int GetRandomSec()
+        {
+            Random rd = new(Guid.NewGuid().GetHashCode()); // 用 GUID 作种子，高频调用也随机。
+            return rd.Next(1, 11); // 1 到 10。
+        }
+
         public async Task Run()
         {
             if (_status == TaskStatus.Running)
@@ -190,6 +197,13 @@ namespace YBNAS
                     _logger.Debug($"任务 {_taskGuid} - 跳过运行。");
                     OnSkip?.Invoke(this);
                     return;
+                }
+                // 延时。
+                if (Config.RandomDelay)
+                {
+                    int sec = GetRandomSec();
+                    _logger.Info($"任务 {_taskGuid} - 随机延时 {sec} 秒……");
+                    await Task.Delay(sec * 1000);
                 }
                 bool signinStatus = await Signin(csrfToken, _device, userAgent);
                 if (!signinStatus) // 签到失败。
@@ -295,15 +309,21 @@ namespace YBNAS
             var authContent = await reqAuth.GetStringAsync();
             _logger.Debug($"任务 {_taskGuid} - 收到响应：{authContent}");
             JsonNode authResNode = JsonNode.Parse(authContent!)!;
-            int authResCode = (int)authResNode["code"]!;
-            string authResMsg = (string)authResNode["msg"]!;
+            int authResCode = authResNode["code"].Deserialize<int>();
+            string authResMsg = authResNode["msg"].Deserialize<string>()!;
             if (authResCode != 0)
             {
                 _logger.Error($"任务 {_taskGuid} - 校本化认证失败，服务端返回消息：{authResMsg}。");
                 return new User();
             }
             JsonNode authResData = authResNode["data"]!;
-            User user = new() { UniversityName = (string?)authResData["UniversityName"], UniversityId = (string?)authResData["UniversityId"], PersonName = (string?)authResData["PersonName"], PersonId = (string)authResData["PersonId"]! };
+            User user = new()
+            {
+                UniversityName = authResData["UniversityName"].Deserialize<string>(),
+                UniversityId = authResData["UniversityId"].Deserialize<string>(),
+                PersonName = authResData["PersonName"].Deserialize<string>(),
+                PersonId = authResData["PersonId"].Deserialize<string>()!
+            };
             _logger.Debug($"任务 {_taskGuid} - 解析出用户信息：{user}。");
             return user;
         }
@@ -320,15 +340,19 @@ namespace YBNAS
             var deviceContent = await reqGetDevice.GetStringAsync();
             _logger.Debug($"任务 {_taskGuid} - 收到响应：{deviceContent}");
             JsonNode deviceResNode = JsonNode.Parse(deviceContent!)!;
-            int deviceResCode = (int)deviceResNode["code"]!;
-            string deviceResMsg = (string)deviceResNode["msg"]!;
+            int deviceResCode = deviceResNode["code"].Deserialize<int>();
+            string deviceResMsg = deviceResNode["msg"].Deserialize<string>()!;
             if (deviceResCode != 0)
             {
                 _logger.Error($"任务 {_taskGuid} - 获取授权设备失败，服务端返回消息：{deviceResMsg}。");
                 return new Device();
             }
             JsonNode deviceResData = deviceResNode["data"]!;
-            Device device = new() { Code = (string?)deviceResData["Code"], PhoneModel = (string?)deviceResData["PhoneModel"] };
+            Device device = new()
+            {
+                Code = deviceResData["Code"].Deserialize<string>(),
+                PhoneModel = deviceResData["PhoneModel"].Deserialize<string>()
+            };
             _logger.Debug($"任务 {_taskGuid} - 解析出授权设备：{device}。");
             return device;
         }
@@ -345,15 +369,22 @@ namespace YBNAS
             var infoContent = await reqSigninInfo.GetStringAsync();
             _logger.Debug($"任务 {_taskGuid} - 收到响应：{infoContent}");
             JsonNode infoResNode = JsonNode.Parse(infoContent!)!;
-            int infoResCode = (int)infoResNode["code"]!;
-            string infoResMsg = (string)infoResNode["msg"]!;
+            int infoResCode = infoResNode["code"].Deserialize<int>();
+            string infoResMsg = infoResNode["msg"].Deserialize<string>()!;
             if (infoResCode != 0)
             {
                 _logger.Error($"任务 {_taskGuid} - 获取签到信息失败，服务端返回消息：{infoResMsg}。");
                 return new();
             }
             JsonNode infoResData = infoResNode["data"]!;
-            SigninInfo signinInfo = new() { FromServer = true /* 标记已从服务器获取到签到信息，区别于默认的签到信息。 */, State = (int)infoResData["State"]!, BeginTime = (int)infoResData["Range"]!["StartTime"]!, EndTime = (int)infoResData["Range"]!["EndTime"]!, ShouldSigninToday = (((int)infoResData["Range"]!["SignDay"]!) == 0) ? false : true };
+            SigninInfo signinInfo = new()
+            {
+                FromServer = true /* 标记已从服务器获取到签到信息，区别于默认的签到信息。 */,
+                State = infoResData["State"].Deserialize<int>(),
+                BeginTime = infoResData["Range"]!["StartTime"].Deserialize<long>(),
+                EndTime = infoResData["Range"]!["EndTime"].Deserialize<long>(),
+                ShouldSigninToday = infoResData["Range"]!["SignDay"].Deserialize<int>() != 0
+            };
             _logger.Debug($"任务 {_taskGuid} - 解析出签到信息：{signinInfo}。");
             return signinInfo;
         }
@@ -371,8 +402,8 @@ namespace YBNAS
             string signinContent = await reqSignin.PostUrlEncodedAsync(signinBody).ReceiveString();
             _logger.Debug($"任务 {_taskGuid} - 收到响应：{signinContent}。");
             JsonNode signinResNode = JsonNode.Parse(signinContent!)!;
-            int signinResCode = (int)signinResNode["code"]!;
-            string signinResMsg = (string)signinResNode["msg"]!;
+            int signinResCode = signinResNode["code"].Deserialize<int>();
+            string signinResMsg = signinResNode["msg"].Deserialize<string>()!;
             if (signinResCode != 0)
             {
                 _logger.Error($"任务 {_taskGuid} - 签到失败，服务端返回消息：{signinResMsg}。");

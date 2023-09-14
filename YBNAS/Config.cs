@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace YBNAS
 {
-    internal class SingleConfig
+    struct SigninConfig
     {
         public string? Account { get; set; }
         public string? Password { get; set; }
@@ -15,9 +15,15 @@ namespace YBNAS
         public List<double>? Position { get; set; }
         public string? Address { get; set; }
         public List<int>? TimeSpan { get; set; }
-        public override string ToString()
+        public override readonly string ToString()
         {
             return JsonConvert.SerializeObject(this);
         }
+    }
+    static internal class Config
+    {
+        public static int RunningTasksLimit { get; set; }
+        public static bool RandomDelay { get; set; }
+        public static List<SigninConfig>? SigninConfigs { get; set; }
     }
 }

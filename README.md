@@ -58,8 +58,10 @@
 
 &emsp;&emsp;`Device` 字段配置授权设备信息，可在易班校本化“设备识别”页面获取，留空则从接口获取。
 
-&emsp;&emsp;`Position` 字段配置签到坐标，第一个值是经度，第二个值是纬度，可通过[这个网页](https://lbs.amap.com/api/javascript-api/guide/services/geocoder)获取，默认坐标在第十八学生公寓。
+&emsp;&emsp;`Position` 字段配置签到坐标，第一个值是经度，第二个值是纬度，默认坐标在第十八学生公寓。
 
 &emsp;&emsp;`Address` 字段配置签到地址。
+
+&emsp;&emsp;`Position` 和 `Address` 所需值可以在[这个网页](https://lbs.amap.com/api/javascript-api/guide/services/geocoder)的“UI组件-拖拽选址”部分获取。
 
 &emsp;&emsp;`TimeSpan` 字段配置签到时间段，按顺序分别填开始小时、开始分钟、结束小时、结束分钟。程序运行时读取系统时间，若其不在此字段设定的时间段内，则跳过此用户的签到任务创建。另外，签到时也会动态获取当前时间，与校本化接口返回的签到时间段比对，若不在允许的时间段内，同样也会跳过签到。

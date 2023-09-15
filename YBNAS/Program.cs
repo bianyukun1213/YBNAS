@@ -33,13 +33,13 @@ try
     string configStr = File.ReadAllText(configPath);
     logger.Debug($"解析配置字符串……");
     JsonNode confRoot = JsonNode.Parse(configStr)!;
-    Config.RunningTasksLimit = confRoot["RunningTasksLimit"].Deserialize<int>();
-    if (Config.RunningTasksLimit < 1)
+    Config.MaxRunningTasks = confRoot["MaxRunningTasks"].Deserialize<int>();
+    if (Config.MaxRunningTasks < 1)
     {
-        logger.Error($"RunningTasksLimit 不应小于 1，将使用默认值 4。");
-        Config.RunningTasksLimit = 4;
+        logger.Error($"MaxRunningTasks 不应小于 1，将使用默认值 4。");
+        Config.MaxRunningTasks = 4;
     }
-    logger.Debug($"配置 RunningTasksLimit: {Config.RunningTasksLimit}。");
+    logger.Debug($"配置 MaxRunningTasks: {Config.MaxRunningTasks}。");
     Config.RandomDelay = confRoot["RandomDelay"].Deserialize<bool>();
     logger.Debug($"配置 RandomDelay: {Config.RandomDelay}。");
     Config.SigninConfigs = confRoot["SigninConfigs"].Deserialize<List<SigninConfig>>()!;
@@ -105,7 +105,7 @@ foreach (var item in tasks)
 
 for (int i = 0; i < tasks.Count; i++)
 {
-    if (i >= Config.RunningTasksLimit) // 应用初始同时运行任务数限制。
+    if (i >= Config.MaxRunningTasks) // 应用初始同时运行任务数限制。
         break;
     var res = tasks[i].Run(); // 消除 CS4014 警告，https://learn.microsoft.com/zh-cn/dotnet/csharp/language-reference/compiler-messages/cs4014。
 }

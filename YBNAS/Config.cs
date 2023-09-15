@@ -22,7 +22,7 @@ namespace YBNAS
     }
     static internal class Config
     {
-        public static int RunningTasksLimit { get; set; }
+        public static int MaxRunningTasks { get; set; }
         public static bool RandomDelay { get; set; }
         public static List<SigninConfig>? SigninConfigs { get; set; }
     }

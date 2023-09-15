@@ -1,5 +1,5 @@
 ﻿{
-  "RunningTasksLimit": 4,
+  "MaxRunningTasks": 4,
   "RandomDelay": true,
   "SigninConfigs": [
     {

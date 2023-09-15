@@ -122,10 +122,10 @@ namespace YBNAS
             _status = TaskStatus.Waiting;
         }
 
-        private static int GetRandomSec()
+        private static int GetRandom(int minValue, int maxValue)
         {
             Random rd = new(Guid.NewGuid().GetHashCode()); // 用 GUID 作种子，高频调用也随机。
-            return rd.Next(1, 11); // 1 到 10。
+            return rd.Next(minValue, maxValue);
         }
 
         public async Task Run()
@@ -201,7 +201,7 @@ namespace YBNAS
                 // 延迟。
                 if (Config.RandomDelay)
                 {
-                    int sec = GetRandomSec();
+                    int sec = GetRandom(1, 11); // 1 到 10 秒。
                     _logger.Info($"任务 {_taskGuid} - 随机延迟 {sec} 秒……");
                     await Task.Delay(sec * 1000);
                 }

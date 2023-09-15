@@ -28,7 +28,7 @@ try
     if (!File.Exists(configPath))
     {
         logger.Fatal($"配置文件不存在。");
-        return;
+        return -1;
     }
     string configStr = File.ReadAllText(configPath);
     logger.Debug($"解析配置字符串……");
@@ -36,13 +36,18 @@ try
     Config.MaxRunningTasks = confRoot["MaxRunningTasks"].Deserialize<int>();
     if (Config.MaxRunningTasks < 1)
     {
-        logger.Error($"MaxRunningTasks 不应小于 1，将使用默认值 4。");
+        logger.Warn($"配置 MaxRunningTasks 不应小于 1，将使用默认值 4。");
         Config.MaxRunningTasks = 4;
     }
     logger.Debug($"配置 MaxRunningTasks: {Config.MaxRunningTasks}。");
     Config.RandomDelay = confRoot["RandomDelay"].Deserialize<bool>();
     logger.Debug($"配置 RandomDelay: {Config.RandomDelay}。");
     Config.SigninConfigs = confRoot["SigninConfigs"].Deserialize<List<SigninConfig>>()!;
+    if (Config.SigninConfigs == null)
+    {
+        logger.Fatal($"配置 SigninConfigs 为空。");
+        return -1;
+    }
     foreach (SigninConfig conf in Config.SigninConfigs)
     {
 
@@ -78,12 +83,15 @@ try
     }
     logger.Info($"共 {Config.SigninConfigs.Count} 条签到配置，{tasks.Count} 条可用且已解析。");
     if (tasks.Count == 0)
+    {
         logger.Warn($"当前时间下无可用签到配置。");
+        return 0;
+    }
 }
 catch (Exception ex)
 {
     logger.Fatal(ex, $"解析配置文件时出错。");
-    return;
+    return -1;
     //throw;
 }
 
@@ -93,7 +101,7 @@ int tasksSkipped = 0;
 int tasksWaiting = tasks.Count;
 int tasksAborted = 0;
 
-UpdateCounts();
+UpdateStatus();
 
 foreach (var item in tasks)
 {
@@ -110,7 +118,7 @@ for (int i = 0; i < tasks.Count; i++)
     var res = tasks[i].Run(); // 消除 CS4014 警告，https://learn.microsoft.com/zh-cn/dotnet/csharp/language-reference/compiler-messages/cs4014。
 }
 
-void UpdateCounts()
+void UpdateStatus()
 {
     tasksRunning = tasks.Count(x => x.Status == SigninTask.TaskStatus.Running);
     tasksComplete = tasks.Count(x => x.Status == SigninTask.TaskStatus.Complete);
@@ -128,18 +136,18 @@ void RunNextTask()
 
 void St_OnRun(SigninTask task)
 {
-    UpdateCounts();
+    UpdateStatus();
 }
 
 void St_OnComplete(SigninTask task)
 {
-    UpdateCounts();
+    UpdateStatus();
     RunNextTask();
 }
 
 void St_OnError(SigninTask task)
 {
-    UpdateCounts();
+    UpdateStatus();
     if (task.RunCount < 2)
     {
         logger.Warn($"任务 {task.TaskGuid} 出错，将重试。");
@@ -153,3 +161,4 @@ void St_OnError(SigninTask task)
 }
 
 Console.ReadLine();
+return 0;

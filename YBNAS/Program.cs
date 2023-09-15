@@ -36,7 +36,7 @@ try
     Config.MaxRunningTasks = confRoot["MaxRunningTasks"].Deserialize<int>();
     if (Config.MaxRunningTasks < 1)
     {
-        logger.Warn($"配置 MaxRunningTasks 不应小于 1，将使用默认值 4。");
+        logger.Warn($"配置 MaxRunningTasks 不应小于 1，将使用内置值 4。");
         Config.MaxRunningTasks = 4;
     }
     logger.Debug($"配置 MaxRunningTasks: {Config.MaxRunningTasks}。");

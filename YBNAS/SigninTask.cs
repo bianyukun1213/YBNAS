@@ -198,11 +198,11 @@ namespace YBNAS
                     OnSkip?.Invoke(this);
                     return;
                 }
-                // 延时。
+                // 延迟。
                 if (Config.RandomDelay)
                 {
                     int sec = GetRandomSec();
-                    _logger.Info($"任务 {_taskGuid} - 随机延时 {sec} 秒……");
+                    _logger.Info($"任务 {_taskGuid} - 随机延迟 {sec} 秒……");
                     await Task.Delay(sec * 1000);
                 }
                 bool signinStatus = await Signin(csrfToken, _device, userAgent);

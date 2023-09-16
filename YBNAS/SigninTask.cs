@@ -75,7 +75,7 @@ namespace YBNAS
         private User _user;
         private Device _device;
 
-        private int _runCount = 0;
+        //private int _runCount = 0; 现在重试次数变为可配置项，需要更清晰地追踪重试次数。打算在 Program.cs 里实现。
 
         public delegate void RunHandler(SigninTask st);
         public event RunHandler? OnRun;
@@ -104,7 +104,7 @@ namespace YBNAS
         public User User { get { return _user; } }
         public Device Device { get { return _device; } }
 
-        public int RunCount { get { return _runCount; } }
+        //public int RunCount { get { return _runCount; } } 现在重试次数变为可配置项，需要更清晰地追踪重试次数。打算在 Program.cs 里实现。
 
         public SigninTask(string account, string password, string position, string address, int beginHour, int beginMin, int endHour, int endMin, Device device = new())
         {
@@ -137,7 +137,7 @@ namespace YBNAS
             }
             try
             {
-                _runCount++;
+                //_runCount++;
                 _status = TaskStatus.Running;
                 _logger.Debug($"任务 {_taskGuid} - 开始运行。");
                 OnRun?.Invoke(this);

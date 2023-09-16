@@ -1,5 +1,6 @@
 ﻿{
   "MaxRunningTasks": 4,
+  "MaxRetries": 3,
   "RandomDelay": true,
   "SigninConfigs": [
     {

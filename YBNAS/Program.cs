@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Text.Json.Nodes;
 using YBNAS;
 using System.Text.Json;
+using Flurl.Util;
 
 var asm = System.Reflection.Assembly.GetExecutingAssembly();
 string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
@@ -21,6 +22,7 @@ logger.Info($"{appVer} 由 Hollis 编写，源代码及版本更新见 https://g
 
 DateTime curDateTime = DateTime.Now;
 List<SigninTask> tasks = new();
+Dictionary<string, int> retries = new();
 
 try
 {
@@ -40,6 +42,13 @@ try
         Config.MaxRunningTasks = 4;
     }
     logger.Debug($"配置 MaxRunningTasks: {Config.MaxRunningTasks}。");
+    Config.MaxRetries = confRoot["MaxRetries"].Deserialize<int>();
+    if (Config.MaxRetries < 0)
+    {
+        logger.Warn($"配置 MaxRetries 不应小于 0，将使用内置值 3。");
+        Config.MaxRetries = 3;
+    }
+    logger.Debug($"配置 MaxRetry: {Config.MaxRetries}。");
     Config.RandomDelay = confRoot["RandomDelay"].Deserialize<bool>();
     logger.Debug($"配置 RandomDelay: {Config.RandomDelay}。");
     Config.SigninConfigs = confRoot["SigninConfigs"].Deserialize<List<SigninConfig>>()!;
@@ -69,7 +78,7 @@ try
         int curTime = curDateTime.Hour * 60 + curDateTime.Minute;
         if (curTime < confBegTime || curTime > confEndTime)
             continue;
-        tasks.Add(new(
+        SigninTask task = new(
             conf.Account is null ? "" : conf.Account,
             conf.Password is null ? "" : conf.Password,
             $"{conf.Position![0]},{conf.Position![1]}",
@@ -79,7 +88,9 @@ try
             conf.TimeSpan![2],
             conf.TimeSpan![3],
             conf.Device
-            ));
+            );
+        tasks.Add(task);
+        retries.Add(task.TaskGuid, 0);
     }
     logger.Info($"共 {Config.SigninConfigs.Count} 条签到配置，{tasks.Count} 条可用且已解析。");
     if (tasks.Count == 0)
@@ -148,14 +159,21 @@ void St_OnComplete(SigninTask task)
 void St_OnError(SigninTask task)
 {
     UpdateStatus();
-    if (task.RunCount < 2)
+    bool succ = retries.TryGetValue(task.TaskGuid, out int curRetries);
+    if (!succ)
+        return;
+    if (curRetries < Config.MaxRetries)
     {
-        logger.Warn($"任务 {task.TaskGuid} 出错，将重试。");
+        logger.Warn($"任务 {task.TaskGuid} 出错，将进行第 {++curRetries} 次重试。");
         var res = task.Run();
+        retries[task.TaskGuid] = curRetries;
     }
     else
     {
-        logger.Warn($"任务 {task.TaskGuid} 出错且已多次运行，将跳过。");
+        if (Config.MaxRetries == 0)
+            logger.Warn($"任务 {task.TaskGuid} 出错且未开启重试，将运行下一项任务。");
+        else
+            logger.Warn($"任务 {task.TaskGuid} 在 {curRetries} 次重试后再次出错，将运行下一项任务。");
         RunNextTask();
     }
 }

@@ -19,7 +19,7 @@
 ``` JSON
 {
   "MaxRunningTasks": 4,
-  "MaxRetries": 1,
+  "MaxRetries": 3,
   "RandomDelay": true,
   "SigninConfigs": [
     {

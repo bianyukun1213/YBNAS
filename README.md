@@ -8,7 +8,9 @@
 
 &emsp;&emsp;本程序基于 .NET 6.0 框架，采用独立部署模式，因此无需安装框架即可运行。
 
-&emsp;&emsp;对于 Windows，解压 `YBNAS.<版本号>.win-x86.zip`，`YBNAS.exe` 即是程序入口。其他平台未提供可执行文件。
+&emsp;&emsp;对于 Windows，只提供 32 位版本；解压 `YBNAS.<版本号>.win-x86.zip`，`YBNAS.exe` 即是程序入口。
+
+&emsp;&emsp;对于 GNU/Linux，只提供 64 位版本；解压 `YBNAS.<版本号>.linux-x64.zip`，`YBNAS` 即是程序入口。使用前需赋予执行权限。
 
 &emsp;&emsp;在运行程序之前需**参照下文编写配置文件**。
 

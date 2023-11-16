@@ -25,7 +25,7 @@ namespace YBNAS
         public static bool AutoExit { get; set; }
         public static int MaxRunningTasks { get; set; }
         public static int MaxRetries { get; set; }
-        public static bool RandomDelay { get; set; }
+        public static List<int>? RandomDelay { get; set; }
         public static List<SigninConfig>? SigninConfigs { get; set; }
     }
 }

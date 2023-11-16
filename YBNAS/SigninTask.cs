@@ -207,10 +207,12 @@ namespace YBNAS
                     return;
                 }
                 // 延迟。
-                if (Config.RandomDelay)
+                if (Config.RandomDelay![0] != 0)
                 {
-                    int sec = GetRandom(1, 11); // 1 到 10 秒。
-                    _logger.Info($"任务 {_taskGuid} - 随机延迟 {sec} 秒……");
+                    int sec = Config.RandomDelay![0];
+                    if (Config.RandomDelay![0] != Config.RandomDelay![1])
+                        sec = GetRandom(Config.RandomDelay![0], Config.RandomDelay![1] + 1);
+                    _logger.Info($"任务 {_taskGuid} - 延迟 {sec} 秒签到……");
                     await Task.Delay(sec * 1000);
                 }
                 bool signinStatus = await Signin(csrfToken, _device, userAgent);

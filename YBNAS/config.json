@@ -2,7 +2,7 @@
   "AutoExit": false,
   "MaxRunningTasks": 4,
   "MaxRetries": 3,
-  "RandomDelay": true,
+  "RandomDelay": [ 1, 10 ],
   "SigninConfigs": [
     {
       "Account": "账号（手机号码）",
@@ -17,10 +17,8 @@
       ],
       "Address": "黑龙江省哈尔滨市松北区浦源路2298号靠近黑龙江科技大学",
       "TimeSpan": [
-        21,
-        50,
-        22,
-        40
+        21, 50,
+        22, 40
       ]
     },
     {
@@ -33,10 +31,8 @@
       ],
       "Address": "黑龙江省哈尔滨市松北区浦源路2298号靠近黑龙江科技大学",
       "TimeSpan": [
-        21,
-        50,
-        22,
-        40
+        21, 50,
+        22, 40
       ]
     }
   ]

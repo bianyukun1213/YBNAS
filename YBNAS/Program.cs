@@ -53,8 +53,20 @@ try
         Config.MaxRetries = 3;
     }
     logger.Debug($"配置 MaxRetry: {Config.MaxRetries}。");
-    Config.RandomDelay = confRoot["RandomDelay"].Deserialize<bool>();
-    logger.Debug($"配置 RandomDelay: {Config.RandomDelay}。");
+    Config.RandomDelay = confRoot["RandomDelay"].Deserialize<List<int>>();
+    if (Config.RandomDelay == null ||
+        Config.RandomDelay.Count != 2 ||
+        Config.RandomDelay[0] < 0 ||
+        Config.RandomDelay[1] < 0 ||
+        Config.RandomDelay[0] > 120 ||
+        Config.RandomDelay[1] > 120 ||
+        (Config.RandomDelay[0] == 0 && Config.RandomDelay[1] != 0) ||
+        Config.RandomDelay[0] > Config.RandomDelay[1])
+    {
+        logger.Warn($"配置 RandomDelay 无效，将使用内置值 [1, 10]。");
+        Config.RandomDelay = [1, 10];
+    }
+    logger.Debug($"配置 RandomDelay: [{Config.RandomDelay[0]}, {Config.RandomDelay[1]}]。");
     Config.SigninConfigs = confRoot["SigninConfigs"].Deserialize<List<SigninConfig>>()!;
     if (Config.SigninConfigs == null)
     {

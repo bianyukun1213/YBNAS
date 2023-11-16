@@ -21,8 +21,8 @@ logger.Info($"程序启动。");
 logger.Info($"{appVer} 由 Hollis 编写，源代码及版本更新见 https://github.com/bianyukun1213/YBNAS。");
 
 DateTime curDateTime = DateTime.Now;
-List<SigninTask> tasks = new();
-Dictionary<string, int> retries = new();
+List<SigninTask> tasks = [];
+Dictionary<string, int> retries = [];
 
 try
 {
@@ -30,11 +30,14 @@ try
     if (!File.Exists(configPath))
     {
         logger.Fatal($"配置文件不存在。");
+        Exit();
         return -1;
     }
     string configStr = File.ReadAllText(configPath);
     logger.Debug($"解析配置字符串……");
     JsonNode confRoot = JsonNode.Parse(configStr)!;
+    Config.AutoExit = confRoot["AutoExit"].Deserialize<bool>();
+    logger.Debug($"配置 AutoExit: {Config.AutoExit}。");
     Config.MaxRunningTasks = confRoot["MaxRunningTasks"].Deserialize<int>();
     if (Config.MaxRunningTasks < 1)
     {
@@ -55,6 +58,7 @@ try
     if (Config.SigninConfigs == null)
     {
         logger.Fatal($"配置 SigninConfigs 为空。");
+        Exit();
         return -1;
     }
     foreach (SigninConfig conf in Config.SigninConfigs)
@@ -96,12 +100,14 @@ try
     if (tasks.Count == 0)
     {
         logger.Warn($"当前时间下无可用签到配置。");
+        Exit();
         return 0;
     }
 }
 catch (Exception ex)
 {
     logger.Fatal(ex, $"解析配置文件时出错。");
+    Exit();
     return -1;
     //throw;
 }
@@ -178,5 +184,15 @@ void St_OnError(SigninTask task)
     }
 }
 
-Console.ReadLine();
+void Exit()
+{
+    if (!Config.AutoExit)
+    {
+        Console.WriteLine("---按任意键退出---");
+        Console.ReadKey();
+    }
+    logger.Debug($"即将退出。");
+}
+
+Exit();
 return 0;

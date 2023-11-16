@@ -22,6 +22,7 @@ namespace YBNAS
     }
     static internal class Config
     {
+        public static bool AutoExit { get; set; }
         public static int MaxRunningTasks { get; set; }
         public static int MaxRetries { get; set; }
         public static bool RandomDelay { get; set; }

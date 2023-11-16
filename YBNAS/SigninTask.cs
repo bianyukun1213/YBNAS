@@ -189,6 +189,14 @@ namespace YBNAS
                     OnSkip?.Invoke(this);
                     return;
                 }
+                if (info.State != 0) // 因为其他原因不适宜签到。已知请假审批通过可能会标为“无需签到”，此时再签就会提示非法签到。但我不知道“无需签到”具体的 State 值；毕竟我通常不请假，直接跑。
+                {
+                    _logger.Info($"任务 {_taskGuid} - {_user.PersonName}今天无需签到或无法签到，（签到信息 State 值为 {info.State}。）将跳过。");
+                    _status = TaskStatus.Skipped;
+                    _logger.Debug($"任务 {_taskGuid} - 跳过运行。");
+                    OnSkip?.Invoke(this);
+                    return;
+                }
                 long curTimeSeconds = DateTimeOffset.Now.ToUnixTimeSeconds();
                 if (curTimeSeconds < info.BeginTime || curTimeSeconds > info.EndTime)
                 {

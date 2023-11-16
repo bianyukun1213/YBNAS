@@ -23,6 +23,7 @@ logger.Info($"{appVer} 由 Hollis 编写，源代码及版本更新见 https://g
 DateTime curDateTime = DateTime.Now;
 List<SigninTask> tasks = [];
 Dictionary<string, int> retries = [];
+bool allTasksDone = false;
 
 try
 {
@@ -30,7 +31,7 @@ try
     if (!File.Exists(configPath))
     {
         logger.Fatal($"配置文件不存在。");
-        Exit();
+        PrintExitMsg();
         return -1;
     }
     string configStr = File.ReadAllText(configPath);
@@ -58,7 +59,7 @@ try
     if (Config.SigninConfigs == null)
     {
         logger.Fatal($"配置 SigninConfigs 为空。");
-        Exit();
+        PrintExitMsg();
         return -1;
     }
     foreach (SigninConfig conf in Config.SigninConfigs)
@@ -100,14 +101,14 @@ try
     if (tasks.Count == 0)
     {
         logger.Warn($"当前时间下无可用签到配置。");
-        Exit();
+        PrintExitMsg();
         return 0;
     }
 }
 catch (Exception ex)
 {
     logger.Fatal(ex, $"解析配置文件时出错。");
-    Exit();
+    PrintExitMsg();
     return -1;
     //throw;
 }
@@ -143,6 +144,8 @@ void UpdateStatus()
     tasksWaiting = tasks.Count(x => x.Status == SigninTask.TaskStatus.Waiting);
     tasksAborted = tasks.Count(x => x.Status == SigninTask.TaskStatus.Aborted);
     Console.Title = $"{appVer} | {tasksRunning} 运行，{tasksComplete} 完成，{tasksSkipped} 跳过，{tasksWaiting} 等待，{tasksAborted} 中止";
+    if (tasksRunning == 0 && tasksWaiting == 0)
+        allTasksDone = true;
 }
 
 void RunNextTask()
@@ -184,15 +187,21 @@ void St_OnError(SigninTask task)
     }
 }
 
-void Exit()
+void PrintExitMsg()
 {
     if (!Config.AutoExit)
     {
-        Console.WriteLine("---按任意键退出---");
+        logger.Info($"按任意键退出。");
         Console.ReadKey();
     }
     logger.Debug($"即将退出。");
 }
 
-Exit();
+while (!allTasksDone)
+{
+    await Task.Delay(1000);
+}
+
+logger.Info($"已完成所有任务的执行。");
+PrintExitMsg();
 return 0;

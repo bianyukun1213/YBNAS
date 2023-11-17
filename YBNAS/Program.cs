@@ -23,7 +23,6 @@ logger.Info($"{appVer} 由 Hollis 编写，源代码及版本更新见 https://g
 DateTime curDateTime = DateTime.Now;
 List<SigninTask> tasks = [];
 Dictionary<string, int> retries = [];
-bool allTasksDone = false;
 
 try
 {
@@ -156,8 +155,6 @@ void UpdateStatus()
     tasksWaiting = tasks.Count(x => x.Status == SigninTask.TaskStatus.Waiting);
     tasksAborted = tasks.Count(x => x.Status == SigninTask.TaskStatus.Aborted);
     Console.Title = $"{appVer} | {tasksRunning} 运行，{tasksComplete} 完成，{tasksSkipped} 跳过，{tasksWaiting} 等待，{tasksAborted} 中止";
-    if (tasksRunning == 0 && tasksWaiting == 0)
-        allTasksDone = true;
 }
 
 void RunNextTask()
@@ -209,11 +206,11 @@ void PrintExitMsg()
     logger.Debug($"即将退出。");
 }
 
-while (!allTasksDone)
+while (!(tasksRunning == 0 && tasksWaiting == 0))
 {
     await Task.Delay(1000);
 }
 
-logger.Info($"已完成所有任务的执行。");
+logger.Info($"已尝试运行所有任务。");
 PrintExitMsg();
 return 0;

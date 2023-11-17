@@ -38,7 +38,7 @@ namespace YBNAS
 
     struct SigninInfo
     {
-        public bool FromServer { get; set; }
+        public bool IsServerRes { get; set; }
         public int State { get; set; } // 不该是 null。
         public long BeginTime { get; set; } // 不该是 null。
         public long EndTime { get; set; } // 不该是 null。
@@ -145,13 +145,28 @@ namespace YBNAS
                 _logger.Debug($"任务 {_taskGuid} - 新建 CookieJar。");
                 string csrfToken = Guid.NewGuid().ToString("N");
                 string rsaPubKey = await GetRsaPubKey();
-                await Login(rsaPubKey);
+                bool loginSucceeded = await Login(rsaPubKey);
+                if (!loginSucceeded)
+                {
+                    _status = TaskStatus.Aborted;
+                    //_logger.Error($"任务 {_taskGuid} - 运行出错。");
+                    OnError?.Invoke(this);
+                    return;
+                }
                 string vr = await GetVr();
+                if (string.IsNullOrEmpty(vr))
+                {
+                    _status = TaskStatus.Aborted;
+                    //_logger.Error($"任务 {_taskGuid} - 运行出错。");
+                    OnError?.Invoke(this);
+                    return;
+                }
                 string userAgent = "yiban_android"; // 校本化应用需要的 UA，先使用 Android 端。
                 _user = await Auth(vr, csrfToken, userAgent);
                 if (string.IsNullOrEmpty(_user.PersonId)) // 校本化认证失败。
                 {
                     _status = TaskStatus.Aborted;
+                    //_logger.Error($"任务 {_taskGuid} - 运行出错。");
                     OnError?.Invoke(this);
                     return;
                 }
@@ -168,16 +183,16 @@ namespace YBNAS
                     if (_device.PhoneModel != string.Empty && _device.Code != string.Empty)
                         _logger.Info($"任务 {_taskGuid} - {_user.PersonName}使用的是 {_device.PhoneModel}（{_device.Code}），好眼光！");
                     else
-                        _logger.Info($"任务 {_taskGuid} - {_user.PersonName}设备信息缺失。Do you guys not have phones?");
+                        _logger.Info($"任务 {_taskGuid} - {_user.PersonName}设备信息缺失。Do you guys not have phones? 可能会签到失败，不过我会试试。");
                 }
                 if (!string.IsNullOrEmpty(_device.PhoneModel) && _device.PhoneModel.Contains("iPhone"))
                     userAgent = "yiban_iOS"; // 如果是 iPhone，让之后的请求携带 iOS 客户端的 UA。
                 // 签到之前必须先获取签到信息，可能会设定 cookie，否则会判非法签到。
                 SigninInfo info = await GetSigninInfo(csrfToken, userAgent);
-                if (!info.FromServer)
+                if (!info.IsServerRes)
                 {
                     _status = TaskStatus.Aborted;
-                    _logger.Error($"任务 {_taskGuid} - 运行出错。");
+                    //_logger.Error($"任务 {_taskGuid} - 运行出错。");
                     OnError?.Invoke(this);
                     return;
                 }
@@ -219,7 +234,7 @@ namespace YBNAS
                 if (!signinStatus) // 签到失败。
                 {
                     _status = TaskStatus.Aborted;
-                    _logger.Error($"任务 {_taskGuid} - 运行出错。");
+                    //_logger.Error($"任务 {_taskGuid} - 运行出错。");
                     OnError?.Invoke(this);
                     return;
                 }
@@ -258,7 +273,7 @@ namespace YBNAS
             return rsaPubKey;
         }
 
-        private async Task Login(string rsaPubKey)
+        private async Task<bool> Login(string rsaPubKey)
         {
             _logger.Info($"任务 {_taskGuid} - 加密密码……");
             var pem = RSA_PEM.FromPEM(rsaPubKey);
@@ -273,6 +288,12 @@ namespace YBNAS
             _logger.Debug($"任务 {_taskGuid} - 发送请求：{reqLogin.Url}，loginBody：{JsonConvert.SerializeObject(loginBody)}……");
             string loginContent = await reqLogin.PostUrlEncodedAsync(loginBody).ReceiveString();
             _logger.Debug($"任务 {_taskGuid} - 收到响应：{loginContent}。");
+            if (loginContent.Contains("error"))
+            {
+                _logger.Error($"任务 {_taskGuid} - 登录失败，可能是用户名或密码错误。");
+                return false;
+            }
+            return true;
         }
 
         private async Task<string> GetVr()
@@ -299,11 +320,14 @@ namespace YBNAS
                     string vrEndPatt = "&yb_uid";
                     int vrBegPattPos = location.IndexOf(vrBegPatt);
                     int vrEndPattPos = location.IndexOf(vrEndPatt);
-                    vr = location[(vrBegPattPos + vrBegPatt.Length)..vrEndPattPos];
+                    if (vrBegPattPos != -1 && vrEndPattPos != -1)
+                        vr = location[(vrBegPattPos + vrBegPatt.Length)..vrEndPattPos];
                     break;
                 }
             }
             _logger.Debug($"任务 {_taskGuid} - 提取的认证参数（verify_request）：{vr}。");
+            if (string.IsNullOrEmpty(vr))
+                _logger.Error($"任务 {_taskGuid} - 获取认证参数失败。");
             return vr;
         }
 
@@ -389,7 +413,7 @@ namespace YBNAS
             JsonNode infoResData = infoResNode["data"]!;
             SigninInfo signinInfo = new()
             {
-                FromServer = true /* 标记已从服务器获取到签到信息，区别于默认的签到信息。 */,
+                IsServerRes = true /* 标记已从服务器获取到签到信息，区别于默认的签到信息。 */,
                 State = infoResData["State"].Deserialize<int>(),
                 BeginTime = infoResData["Range"]!["StartTime"].Deserialize<long>(),
                 EndTime = infoResData["Range"]!["EndTime"].Deserialize<long>(),

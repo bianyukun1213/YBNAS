@@ -12,6 +12,8 @@
 
 &emsp;&emsp;对于 GNU/Linux，只提供 64 位版本；解压 `YBNAS.<版本号>.linux-x64.zip`，`YBNAS` 即是程序入口。使用前需赋予执行权限。
 
+&emsp;&emsp;对于其他平台，请自行编译。
+
 &emsp;&emsp;在运行程序之前需**参照下文编写配置文件**。
 
 ## 配置

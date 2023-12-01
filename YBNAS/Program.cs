@@ -95,6 +95,7 @@ try
         if (curTime < confBegTime || curTime > confEndTime)
             continue;
         SigninTask task = new(
+            conf.Name is null ? "" : conf.Name,
             conf.Account is null ? "" : conf.Account,
             conf.Password is null ? "" : conf.Password,
             $"{conf.Position![0]},{conf.Position![1]}",
@@ -180,18 +181,21 @@ void St_OnError(SigninTask task)
     bool succ = retries.TryGetValue(task.TaskGuid, out int curRetries);
     if (!succ)
         return;
+    string logPrefix = task.GetLogPrefix();
+    if (logPrefix.EndsWith("）"))
+        logPrefix += " ";
     if (curRetries < Config.MaxRetries)
     {
-        logger.Warn($"任务 {task.TaskGuid} 出错，将进行第 {++curRetries} 次重试。");
+        logger.Warn($"{logPrefix}出错，将进行第 {++curRetries} 次重试。");
         var res = task.Run();
         retries[task.TaskGuid] = curRetries;
     }
     else
     {
         if (Config.MaxRetries == 0)
-            logger.Warn($"任务 {task.TaskGuid} 出错且未开启重试，将运行下一项任务。");
+            logger.Warn($"{logPrefix}出错且未开启重试，将运行下一项任务。");
         else
-            logger.Warn($"任务 {task.TaskGuid} 在 {curRetries} 次重试后再次出错，将运行下一项任务。");
+            logger.Warn($"{logPrefix}在 {curRetries} 次重试后再次出错，将运行下一项任务。");
         RunNextTask();
     }
 }

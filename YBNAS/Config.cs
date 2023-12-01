@@ -9,6 +9,7 @@ namespace YBNAS
 {
     struct SigninConfig
     {
+        public string? Name { get; set; }
         public string? Account { get; set; }
         public string? Password { get; set; }
         public Device Device { get; set; } // C# struct 是值类型，不会是 null。

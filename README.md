@@ -28,6 +28,7 @@
   "RandomDelay": [1, 10],
   "SigninConfigs": [
     {
+      "Name": "张三",
       "Account": "账号（手机号码）",
       "Password": "密码",
       "Device": {
@@ -45,6 +46,7 @@
       ]
     },
     {
+      "Name": "李四",
       "Account": "账号 2",
       "Password": "密码 2",
       "Device": {},

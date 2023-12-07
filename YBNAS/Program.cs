@@ -12,6 +12,7 @@ using System.Text.Json.Nodes;
 using YBNAS;
 using System.Text.Json;
 using Flurl.Util;
+using System.Diagnostics;
 
 var asm = System.Reflection.Assembly.GetExecutingAssembly();
 string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
@@ -26,13 +27,14 @@ Dictionary<string, int> retries = [];
 
 try
 {
-    string configPath = Path.GetDirectoryName(asm.Location)! + @"/config.json";
+    string configPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "config.json");
     if (!File.Exists(configPath))
     {
         logger.Fatal($"配置文件不存在。");
         PrintExitMsg();
         return -1;
     }
+    logger.Debug($"配置文件是 {configPath}。");
     string configStr = File.ReadAllText(configPath);
     logger.Debug($"解析配置字符串……");
     JsonNode confRoot = JsonNode.Parse(configStr)!;

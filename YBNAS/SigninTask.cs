@@ -14,6 +14,17 @@ using System.Threading.Tasks;
 
 namespace YBNAS
 {
+    enum Error
+    {
+        Unknown = -1,
+        Ok,
+        LoginFailed,
+        VrInvalid,
+        UserInvalid,
+        SigninInfoInvalid,
+        SigninFailed
+    }
+
     struct User
     {
         public string? UniversityName { get; set; }
@@ -78,13 +89,13 @@ namespace YBNAS
 
         //private int _runCount = 0; 现在重试次数变为可配置项，需要更清晰地追踪重试次数。打算在 Program.cs 里实现。
 
-        public delegate void RunHandler(SigninTask st);
+        public delegate void RunHandler(SigninTask st, Error err);
         public event RunHandler? OnRun;
-        public delegate void CompleteHandler(SigninTask st);
+        public delegate void CompleteHandler(SigninTask st, Error err);
         public event CompleteHandler? OnComplete;
-        public delegate void SkipHandler(SigninTask st);
+        public delegate void SkipHandler(SigninTask st, Error err);
         public event SkipHandler? OnSkip;
-        public delegate void ErrorHandler(SigninTask st);
+        public delegate void ErrorHandler(SigninTask st, Error err);
         public event ErrorHandler? OnError;
 
         private CookieJar _jar = new();
@@ -148,7 +159,7 @@ namespace YBNAS
                 //_runCount++;
                 _status = TaskStatus.Running;
                 _logger.Debug($"{GetLogPrefix()}：开始运行。");
-                OnRun?.Invoke(this);
+                OnRun?.Invoke(this, Error.Ok);
                 _jar = new CookieJar(); // 存 cookie。任务失败重试，使用新 cookie。
                 _logger.Debug($"{GetLogPrefix()}：新建 CookieJar。");
                 string csrfToken = Guid.NewGuid().ToString("N");
@@ -158,7 +169,7 @@ namespace YBNAS
                 {
                     _status = TaskStatus.Aborted;
                     //_logger.Error($"任务 {_taskGuid}：运行出错。");
-                    OnError?.Invoke(this);
+                    OnError?.Invoke(this, Error.LoginFailed);
                     return;
                 }
                 string vr = await GetVr();
@@ -166,7 +177,7 @@ namespace YBNAS
                 {
                     _status = TaskStatus.Aborted;
                     //_logger.Error($"任务 {_taskGuid}：运行出错。");
-                    OnError?.Invoke(this);
+                    OnError?.Invoke(this, Error.VrInvalid);
                     return;
                 }
                 string userAgent = "yiban_android"; // 校本化应用需要的 UA，先使用 Android 端。
@@ -175,7 +186,7 @@ namespace YBNAS
                 {
                     _status = TaskStatus.Aborted;
                     //_logger.Error($"任务 {_taskGuid}：运行出错。");
-                    OnError?.Invoke(this);
+                    OnError?.Invoke(this, Error.UserInvalid);
                     return;
                 }
                 _name = string.IsNullOrEmpty(_name.Trim()) ? (string.IsNullOrEmpty(_user.PersonName) ? "" : _user.PersonName) : _name;
@@ -202,7 +213,7 @@ namespace YBNAS
                 {
                     _status = TaskStatus.Aborted;
                     //_logger.Error($"任务 {_taskGuid}：运行出错。");
-                    OnError?.Invoke(this);
+                    OnError?.Invoke(this, Error.SigninInfoInvalid);
                     return;
                 }
                 if (info.State == 3) // 表示已签到。
@@ -210,7 +221,7 @@ namespace YBNAS
                     _logger.Info($"{GetLogPrefix()}：今天已签到，将跳过。");
                     _status = TaskStatus.Skipped;
                     _logger.Debug($"{GetLogPrefix()}：跳过运行。");
-                    OnSkip?.Invoke(this);
+                    OnSkip?.Invoke(this, Error.Ok);
                     return;
                 }
                 if (info.State == 1)
@@ -218,7 +229,7 @@ namespace YBNAS
                     _logger.Info($"{GetLogPrefix()}：不在学校要求的签到时间段内，将跳过。"); // 最好让用户一眼知道是哪个人在哪个学校因为未到时间签到失败。
                     _status = TaskStatus.Skipped;
                     _logger.Debug($"{GetLogPrefix()}：跳过运行。");
-                    OnSkip?.Invoke(this);
+                    OnSkip?.Invoke(this, Error.Ok);
                     return;
                 }
                 if (info.State != 0) // 因为其他原因不适宜签到。已知请假审批通过可能会标为“无需签到”，此时再签就会提示非法签到。但我不知道“无需签到”具体的 State 值（可能是 2）；毕竟我通常不请假，直接跑。
@@ -226,7 +237,7 @@ namespace YBNAS
                     _logger.Info($"{GetLogPrefix()}：今天无需签到或无法签到，（签到信息 State 值为 {info.State}。）将跳过。");
                     _status = TaskStatus.Skipped;
                     _logger.Debug($"{GetLogPrefix()}：跳过运行。");
-                    OnSkip?.Invoke(this);
+                    OnSkip?.Invoke(this, Error.Ok);
                     return;
                 }
                 // 延迟。
@@ -243,19 +254,19 @@ namespace YBNAS
                 {
                     _status = TaskStatus.Aborted;
                     //_logger.Error($"任务 {_taskGuid}：运行出错。");
-                    OnError?.Invoke(this);
+                    OnError?.Invoke(this, Error.SigninFailed);
                     return;
                 }
                 _logger.Info($"{GetLogPrefix()}：签到成功！Have a safe day.");
                 _status = TaskStatus.Complete;
                 _logger.Debug($"{GetLogPrefix()}：运行完成。");
-                OnComplete?.Invoke(this);
+                OnComplete?.Invoke(this, Error.Ok);
             }
             catch (Exception ex)
             {
                 _status = TaskStatus.Aborted;
                 _logger.Error(ex, $"{GetLogPrefix()}：运行出错。"); // NLog 推荐这样传递异常信息。
-                OnError?.Invoke(this);
+                OnError?.Invoke(this, Error.Unknown);
                 //throw;
             }
         }

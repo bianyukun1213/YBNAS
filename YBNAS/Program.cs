@@ -38,6 +38,8 @@ try
     JsonNode confRoot = JsonNode.Parse(configStr)!;
     Config.AutoExit = confRoot["AutoExit"].Deserialize<bool>();
     logger.Debug($"配置 AutoExit: {Config.AutoExit}。");
+    Config.Shuffle = confRoot["Shuffle"].Deserialize<bool>();
+    logger.Debug($"配置 Shuffle: {Config.Shuffle}。");
     Config.MaxRunningTasks = confRoot["MaxRunningTasks"].Deserialize<int>();
     if (Config.MaxRunningTasks < 1)
     {
@@ -109,6 +111,11 @@ try
         tasks.Add(task);
         retries.Add(task.TaskGuid, 0);
     }
+    if (Config.Shuffle)
+    {
+        Random rd = new();
+        tasks = [.. tasks.OrderBy(task => rd.Next())];
+    }
     logger.Info($"共 {Config.SigninConfigs.Count} 条签到配置，{tasks.Count} 条可用且已解析。");
     if (tasks.Count == 0)
     {
@@ -164,18 +171,18 @@ void RunNextTask()
     var res = one?.Run();
 }
 
-void St_OnRun(SigninTask task)
+void St_OnRun(SigninTask task, Error err)
 {
     UpdateStatus();
 }
 
-void St_OnComplete(SigninTask task)
+void St_OnComplete(SigninTask task, Error err)
 {
     UpdateStatus();
     RunNextTask();
 }
 
-void St_OnError(SigninTask task)
+void St_OnError(SigninTask task, Error err)
 {
     UpdateStatus();
     bool succ = retries.TryGetValue(task.TaskGuid, out int curRetries);

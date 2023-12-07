@@ -1,5 +1,6 @@
 ﻿{
   "AutoExit": false,
+  "Shuffle": true,
   "MaxRunningTasks": 4,
   "MaxRetries": 3,
   "RandomDelay": [ 1, 10 ],

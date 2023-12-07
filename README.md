@@ -23,6 +23,7 @@
 ``` JSON
 {
   "AutoExit": false,
+  "Shuffle": true,
   "MaxRunningTasks": 4,
   "MaxRetries": 3,
   "RandomDelay": [1, 10],
@@ -65,6 +66,8 @@
 ```
 
 &emsp;&emsp;`AutoExit` 字段配置已完成所有任务的执行或程序运行出错后，是否自动退出。如不自动退出，则等待用户按任意键退出。
+
+&emsp;&emsp;`Shuffle` 字段配置是否打乱签到顺序。若不打乱，则按照配置文件内的顺序签到。
 
 &emsp;&emsp;`MaxRunningTasks` 字段配置初始同时运行任务数，可以简单理解为最多同时运行几个任务，内置值及配置默认值均为 `4`。
 

@@ -224,6 +224,14 @@ namespace YBNAS
                     OnSkip?.Invoke(this, Error.Ok);
                     return;
                 }
+                if (info.State == 2) // 无需签到，可能已请假。
+                {
+                    _logger.Info($"{GetLogPrefix()}：今天无需签到，将跳过。");
+                    _status = TaskStatus.Skipped;
+                    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
+                    OnSkip?.Invoke(this, Error.Ok);
+                    return;
+                }
                 if (info.State == 1)
                 {
                     _logger.Info($"{GetLogPrefix()}：不在学校要求的签到时间段内，将跳过。"); // 最好让用户一眼知道是哪个人在哪个学校因为未到时间签到失败。
@@ -232,7 +240,7 @@ namespace YBNAS
                     OnSkip?.Invoke(this, Error.Ok);
                     return;
                 }
-                if (info.State != 0) // 因为其他原因不适宜签到。已知请假审批通过可能会标为“无需签到”，此时再签就会提示非法签到。但我不知道“无需签到”具体的 State 值（可能是 2）；毕竟我通常不请假，直接跑。
+                if (info.State != 0) // 因为其他原因不适宜签到。
                 {
                     _logger.Info($"{GetLogPrefix()}：今天无需签到或无法签到，（签到信息 State 值为 {info.State}。）将跳过。");
                     _status = TaskStatus.Skipped;

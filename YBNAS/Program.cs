@@ -19,7 +19,7 @@ string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
 
 Logger logger = NLog.LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
 logger.Info($"程序启动。");
-logger.Info($"{appVer} 由 Hollis 编写，源代码及版本更新见 https://github.com/bianyukun1213/YBNAS。");
+logger.Info($"{appVer} 由 Hollis 编写，源代码、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
 
 DateTime curDateTime = DateTime.Now;
 List<SigninTask> tasks = [];
@@ -191,7 +191,7 @@ void St_OnError(SigninTask task, Error err)
     if (!succ)
         return;
     string logPrefix = task.GetLogPrefix();
-    if (logPrefix.EndsWith("）"))
+    if (logPrefix.EndsWith('）'))
         logPrefix += " ";
     if (curRetries < Config.MaxRetries)
     {
@@ -225,5 +225,23 @@ while (!(tasksRunning == 0 && tasksWaiting == 0))
 }
 
 logger.Info($"已尝试运行所有任务。");
+if (tasksAborted > 0)
+{
+    logger.Warn($"----中止（{tasksAborted}）----");
+    foreach (var item in tasks.FindAll(x => x.Status == SigninTask.TaskStatus.Aborted))
+    {
+        logger.Warn(item.GetLogPrefix());
+    }
+}
+if (tasksSkipped > 0)
+{
+    logger.Warn($"----跳过（{tasksSkipped}）----");
+    foreach (var item in tasks.FindAll(x => x.Status == SigninTask.TaskStatus.Skipped))
+    {
+        logger.Warn(item.GetLogPrefix());
+    }
+}
+if (tasksAborted > 0 || tasksSkipped > 0)
+    logger.Warn($"--------------");
 PrintExitMsg();
 return 0;

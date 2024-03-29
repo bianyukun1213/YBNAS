@@ -9,6 +9,7 @@ using System.Text.Json;
 var asm = System.Reflection.Assembly.GetExecutingAssembly();
 string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
 
+Console.Title = appVer;
 Logger logger = LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
 logger.Info("程序启动。");
 logger.Info($"{appVer} 由 Hollis 编写，源代码、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
@@ -17,8 +18,15 @@ DateTime curDateTime = DateTime.Now;
 List<SigninTask> tasks = [];
 Dictionary<string, int> retries = [];
 
+int tasksRunning = 0;
+int tasksComplete = 0;
+int tasksSkipped = 0;
+int tasksWaiting = tasks.Count;
+int tasksAborted = 0;
+
 try
 {
+    UpdateStatus();
     string configPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "config.json");
     if (!File.Exists(configPath))
     {
@@ -151,6 +159,7 @@ try
             );
         tasks.Add(task);
         retries.Add(task.TaskGuid, 0);
+        UpdateStatus();
     }
     if (Config.Shuffle)
     {
@@ -172,14 +181,6 @@ catch (Exception ex)
     return -1;
     //throw;
 }
-
-int tasksRunning = 0;
-int tasksComplete = 0;
-int tasksSkipped = 0;
-int tasksWaiting = tasks.Count;
-int tasksAborted = 0;
-
-UpdateStatus();
 
 foreach (var item in tasks)
 {

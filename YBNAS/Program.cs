@@ -5,14 +5,12 @@ using System.Net;
 using System.Text.Json.Nodes;
 using YBNAS;
 using System.Text.Json;
-using System.Text.Encodings.Web;
-using System.Text.Unicode;
 
 var asm = System.Reflection.Assembly.GetExecutingAssembly();
 string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
 
 Logger logger = LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
-logger.Info($"程序启动。");
+logger.Info("程序启动。");
 logger.Info($"{appVer} 由 Hollis 编写，源代码、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
 
 DateTime curDateTime = DateTime.Now;
@@ -24,14 +22,16 @@ try
     string configPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "config.json");
     if (!File.Exists(configPath))
     {
-        logger.Fatal($"配置文件不存在。");
+        logger.Fatal("配置文件不存在。");
         PrintExitMsg();
         return -1;
     }
     logger.Debug($"配置文件是 {configPath}。");
     string configStr = File.ReadAllText(configPath);
-    logger.Debug($"解析配置字符串……");
+    logger.Debug("解析配置字符串……");
     JsonNode confRoot = JsonNode.Parse(configStr)!;
+    Config.AutoSignin = confRoot["AutoSignin"].Deserialize<bool>();
+    logger.Debug($"配置 AutoSignin: {Config.AutoSignin}。");
     Config.AutoExit = confRoot["AutoExit"].Deserialize<bool>();
     logger.Debug($"配置 AutoExit: {Config.AutoExit}。");
     Config.Proxy = confRoot["Proxy"].Deserialize<string>() ?? string.Empty;
@@ -42,7 +42,7 @@ try
         !Config.Proxy.StartsWith("socks4a://") &&
         !Config.Proxy.StartsWith("socks5://"))
     {
-        logger.Warn($"配置 Proxy 无效，将使用内置值空字符串。");
+        logger.Warn("配置 Proxy 无效，将使用内置值空字符串。");
         Config.Proxy = string.Empty;
     }
     FlurlHttp.Clients.WithDefaults(builder => builder
@@ -58,14 +58,14 @@ try
     Config.MaxRunningTasks = confRoot["MaxRunningTasks"].Deserialize<int>();
     if (Config.MaxRunningTasks < 1)
     {
-        logger.Warn($"配置 MaxRunningTasks 不应小于 1，将使用内置值 4。");
+        logger.Warn("配置 MaxRunningTasks 不应小于 1，将使用内置值 4。");
         Config.MaxRunningTasks = 4;
     }
     logger.Debug($"配置 MaxRunningTasks: {Config.MaxRunningTasks}。");
     Config.MaxRetries = confRoot["MaxRetries"].Deserialize<int>();
     if (Config.MaxRetries < 0)
     {
-        logger.Warn($"配置 MaxRetries 不应小于 0，将使用内置值 3。");
+        logger.Warn("配置 MaxRetries 不应小于 0，将使用内置值 3。");
         Config.MaxRetries = 3;
     }
     logger.Debug($"配置 MaxRetry: {Config.MaxRetries}。");
@@ -78,14 +78,14 @@ try
         (Config.RandomDelay[0] == 0 && Config.RandomDelay[1] != 0) ||
         Config.RandomDelay[0] > Config.RandomDelay[1])
     {
-        logger.Warn($"配置 RandomDelay 无效，将使用内置值 [1, 10]。");
+        logger.Warn("配置 RandomDelay 无效，将使用内置值 [1, 10]。");
         Config.RandomDelay = [1, 10];
     }
     logger.Debug($"配置 RandomDelay: [{Config.RandomDelay[0]}, {Config.RandomDelay[1]}]。");
     Config.SigninConfigs = confRoot["SigninConfigs"].Deserialize<List<SigninConfig>>() ?? [];
     if (Config.SigninConfigs.Count == 0)
     {
-        logger.Warn($"配置 SigninConfigs 为空。");
+        logger.Warn("配置 SigninConfigs 为空。");
         PrintExitMsg();
         return -1;
     }
@@ -95,30 +95,38 @@ try
         SigninConfig tempSc = JsonSerializer.Deserialize<SigninConfig>(JsonSerializer.Serialize(conf, ServiceOptions.jsonSerializerOptions))!;
         tempSc.Password = "<已抹除>";
         logger.Debug($"解析签到配置 {tempSc}……"); // 在日志中抹除密码。
-        string signinConfigInvalidStr = $"第 {Config.SigninConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name) ? "" : "（" + conf.Name + "）")}无效，将跳过解析。";
+        var getSigninConfigSkippedStr = (string reason) =>
+        {
+            return $"第 {Config.SigninConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name) ? "" : "（" + conf.Name + "）")}{reason}，将跳过解析。";
+        };
+        if (!conf.Enable)
+        {
+            logger.Info(getSigninConfigSkippedStr("未启用"));
+            continue;
+        }
         if (string.IsNullOrEmpty(conf.Account))
         {
-            logger.Warn(signinConfigInvalidStr);
+            logger.Warn(getSigninConfigSkippedStr("账号为空"));
             continue;
         }
         if (string.IsNullOrEmpty(conf.Password))
         {
-            logger.Warn(signinConfigInvalidStr);
+            logger.Warn(getSigninConfigSkippedStr("密码为空"));
             continue;
         }
         if (conf.Position?.Count != 2)
         {
-            logger.Warn(signinConfigInvalidStr);
+            logger.Warn(getSigninConfigSkippedStr("签到坐标格式错误"));
             continue;
         }
         if (string.IsNullOrEmpty(conf.Address))
         {
-            logger.Warn(signinConfigInvalidStr);
+            logger.Warn(getSigninConfigSkippedStr("签到地址为空"));
             continue;
         }
         if (conf.TimeSpan?.Count != 4)
         {
-            logger.Warn(signinConfigInvalidStr);
+            logger.Warn(getSigninConfigSkippedStr("签到时间段格式错误"));
             continue;
         }
         int confBegTime = conf.TimeSpan[0] * 60 + conf.TimeSpan[1];
@@ -126,7 +134,7 @@ try
         int curTime = curDateTime.Hour * 60 + curDateTime.Minute;
         if (curTime < confBegTime || curTime > confEndTime)
         {
-            logger.Warn($"当前时间不在第 {Config.SigninConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name) ? "" : "（" + conf.Name + "）")}的 TimeSpan 内，此条配置将跳过解析。");
+            logger.Info(getSigninConfigSkippedStr("签到时间段不包含当前时间"));
             continue;
         }
         SigninTask task = new(
@@ -152,14 +160,14 @@ try
     logger.Info($"共 {Config.SigninConfigs.Count} 条签到配置，{tasks.Count} 条可用且已解析。");
     if (tasks.Count == 0)
     {
-        logger.Warn($"当前时间下无可用签到配置。");
+        logger.Warn("当前时间下无可用签到配置。");
         PrintExitMsg();
         return 0;
     }
 }
 catch (Exception ex)
 {
-    logger.Fatal(ex, $"解析配置文件时出错。");
+    logger.Fatal(ex, "解析配置文件时出错。");
     PrintExitMsg();
     return -1;
     //throw;
@@ -181,6 +189,12 @@ foreach (var item in tasks)
     item.OnError += St_OnError;
 }
 
+if (!Config.AutoSignin)
+{
+    logger.Info("按任意键开始签到。");
+    Console.ReadKey(true); // true 不显示按下的按键。
+}
+
 for (int i = 0; i < tasks.Count; i++)
 {
     if (i >= Config.MaxRunningTasks) // 应用初始同时运行任务数限制。
@@ -195,7 +209,7 @@ void UpdateStatus()
     tasksSkipped = tasks.Count(x => x.Status == SigninTask.TaskStatus.Skipped);
     tasksWaiting = tasks.Count(x => x.Status == SigninTask.TaskStatus.Waiting);
     tasksAborted = tasks.Count(x => x.Status == SigninTask.TaskStatus.Aborted);
-    Console.Title = $"{appVer} | {tasksRunning} 运行，{tasksComplete} 完成，{tasksSkipped} 跳过，{tasksWaiting} 等待，{tasksAborted} 中止";
+    Console.Title = $"{appVer} | {Config.SigninConfigs.Count} 签到配置，{tasks.Count} 已解析：{tasksRunning} 运行，{tasksComplete} 完成，{tasksSkipped} 跳过，{tasksWaiting} 等待，{tasksAborted} 中止";
 }
 
 void RunNextTask()
@@ -244,10 +258,10 @@ void PrintExitMsg()
 {
     if (!Config.AutoExit)
     {
-        logger.Info($"按任意键退出。");
-        Console.ReadKey();
+        logger.Info("按任意键退出。");
+        Console.ReadKey(true);
     }
-    logger.Debug($"即将退出。");
+    logger.Debug("即将退出。");
 }
 
 while (!(tasksRunning == 0 && tasksWaiting == 0))
@@ -255,24 +269,26 @@ while (!(tasksRunning == 0 && tasksWaiting == 0))
     await Task.Delay(1000);
 }
 
-logger.Info($"已尝试运行所有任务。");
+logger.Info("已尝试运行所有任务。");
 if (tasksAborted > 0)
 {
-    logger.Warn($"----中止（{tasksAborted}）----");
+    logger.Warn($"----中止（{tasksAborted}/{tasks.Count}）----");
     foreach (var item in tasks.FindAll(x => x.Status == SigninTask.TaskStatus.Aborted))
     {
-        logger.Warn(item.GetLogPrefix());
+        logger.Warn($"{item.GetLogPrefix()}：{item.StatusText}。");
     }
 }
 if (tasksSkipped > 0)
 {
-    logger.Warn($"----跳过（{tasksSkipped}）----");
+    logger.Info($"----跳过（{tasksSkipped}/{tasks.Count}）----");
     foreach (var item in tasks.FindAll(x => x.Status == SigninTask.TaskStatus.Skipped))
     {
-        logger.Warn(item.GetLogPrefix());
+        logger.Info($"{item.GetLogPrefix()}：{item.StatusText}。");
     }
 }
-if (tasksAborted > 0 || tasksSkipped > 0)
-    logger.Warn($"--------------");
+if (tasksSkipped > 0)
+    logger.Info("--------------");
+else if (tasksAborted > 0)
+    logger.Warn("--------------");
 PrintExitMsg();
 return 0;

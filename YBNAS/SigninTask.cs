@@ -65,6 +65,7 @@ namespace YBNAS
 
         private readonly string _taskGuid = Guid.NewGuid().ToString()[..4];
         private TaskStatus _status;
+        private string _statusText;
 
         private string _name = "";
         private readonly string _account = "";
@@ -95,6 +96,7 @@ namespace YBNAS
 
         public string TaskGuid { get { return _taskGuid; } }
         public TaskStatus Status { get { return _status; } }
+        public string StatusText { get { return _statusText; } }
 
         public string Name { get { return _name; } }
         public string Account { get { return _account; } }
@@ -126,6 +128,7 @@ namespace YBNAS
             _user = new User();
             _device = device;
             _status = TaskStatus.Waiting;
+            _statusText = "等待";
             _logger.Debug($"{GetLogPrefix()}：构造完成。");
         }
 
@@ -151,6 +154,7 @@ namespace YBNAS
             {
                 //_runCount++;
                 _status = TaskStatus.Running;
+                _statusText = "正在运行";
                 _logger.Debug($"{GetLogPrefix()}：开始运行。");
                 OnRun?.Invoke(this, Error.Ok);
                 _jar = new CookieJar(); // 存 cookie。任务失败重试，使用新 cookie。
@@ -161,6 +165,7 @@ namespace YBNAS
                 if (!loginSucceeded)
                 {
                     _status = TaskStatus.Aborted;
+                    _statusText = "登录失败";
                     //_logger.Error($"任务 {_taskGuid}：运行出错。");
                     OnError?.Invoke(this, Error.LoginFailed);
                     return;
@@ -169,6 +174,7 @@ namespace YBNAS
                 if (string.IsNullOrEmpty(vr))
                 {
                     _status = TaskStatus.Aborted;
+                    _statusText = "获取认证参数失败";
                     //_logger.Error($"任务 {_taskGuid}：运行出错。");
                     OnError?.Invoke(this, Error.VrInvalid);
                     return;
@@ -178,6 +184,7 @@ namespace YBNAS
                 if (string.IsNullOrEmpty(_user.PersonId)) // 校本化认证失败。
                 {
                     _status = TaskStatus.Aborted;
+                    _statusText = "校本化认证失败";
                     //_logger.Error($"任务 {_taskGuid}：运行出错。");
                     OnError?.Invoke(this, Error.UserInvalid);
                     return;
@@ -205,6 +212,7 @@ namespace YBNAS
                 if (!info.IsServerRes)
                 {
                     _status = TaskStatus.Aborted;
+                    _statusText = "获取签到信息失败";
                     //_logger.Error($"任务 {_taskGuid}：运行出错。");
                     OnError?.Invoke(this, Error.SigninInfoInvalid);
                     return;
@@ -213,6 +221,7 @@ namespace YBNAS
                 {
                     _logger.Info($"{GetLogPrefix()}：今天已签到，将跳过。");
                     _status = TaskStatus.Skipped;
+                    _statusText = "今天已签到";
                     _logger.Debug($"{GetLogPrefix()}：跳过运行。");
                     OnSkip?.Invoke(this, Error.Ok);
                     return;
@@ -221,6 +230,7 @@ namespace YBNAS
                 {
                     _logger.Info($"{GetLogPrefix()}：今天无需签到，将跳过。");
                     _status = TaskStatus.Skipped;
+                    _statusText = "今天无需签到";
                     _logger.Debug($"{GetLogPrefix()}：跳过运行。");
                     OnSkip?.Invoke(this, Error.Ok);
                     return;
@@ -229,6 +239,7 @@ namespace YBNAS
                 {
                     _logger.Info($"{GetLogPrefix()}：不在学校要求的签到时间段内，将跳过。"); // 最好让用户一眼知道是哪个人在哪个学校因为未到时间签到失败。
                     _status = TaskStatus.Skipped;
+                    _statusText = "未到签到时间";
                     _logger.Debug($"{GetLogPrefix()}：跳过运行。");
                     OnSkip?.Invoke(this, Error.Ok);
                     return;
@@ -237,6 +248,7 @@ namespace YBNAS
                 {
                     _logger.Info($"{GetLogPrefix()}：今天无需签到或无法签到，（签到信息 State 值为 {info.State}。）将跳过。");
                     _status = TaskStatus.Skipped;
+                    _statusText = "今天无需或无法签到";
                     _logger.Debug($"{GetLogPrefix()}：跳过运行。");
                     OnSkip?.Invoke(this, Error.Ok);
                     return;
@@ -254,18 +266,21 @@ namespace YBNAS
                 if (!signinStatus) // 签到失败。
                 {
                     _status = TaskStatus.Aborted;
+                    _statusText = "签到失败";
                     //_logger.Error($"任务 {_taskGuid}：运行出错。");
                     OnError?.Invoke(this, Error.SigninFailed);
                     return;
                 }
                 _logger.Info($"{GetLogPrefix()}：签到成功！Have a safe day.");
                 _status = TaskStatus.Complete;
+                _statusText = "完成";
                 _logger.Debug($"{GetLogPrefix()}：运行完成。");
                 OnComplete?.Invoke(this, Error.Ok);
             }
             catch (Exception ex)
             {
                 _status = TaskStatus.Aborted;
+                _statusText = "运行出错";
                 _logger.Error(ex, $"{GetLogPrefix()}：运行出错。"); // NLog 推荐这样传递异常信息。
                 OnError?.Invoke(this, Error.Unknown);
                 //throw;

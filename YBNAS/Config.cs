@@ -1,16 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Unicode;
-using System.Threading.Tasks;
+﻿using System.Text.Json;
 
 namespace YBNAS
 {
     internal struct SigninConfig
     {
+        public bool Enable { get; set; }
         public string Name { get; set; }
         public string Account { get; set; }
         public string Password { get; set; }
@@ -25,6 +19,7 @@ namespace YBNAS
     }
     internal static class Config
     {
+        public static bool AutoSignin { get; set; }
         public static bool AutoExit { get; set; }
         public static string Proxy { get; set; } = string.Empty;
         public static bool Shuffle { get; set; }

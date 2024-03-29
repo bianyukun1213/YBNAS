@@ -24,6 +24,7 @@
 
 ``` JSON
 {
+  "AutoSignin": true,
   "AutoExit": false,
   "Proxy": "",
   "Shuffle": true,
@@ -32,6 +33,7 @@
   "RandomDelay": [1, 10],
   "SigninConfigs": [
     {
+      "Enable": true,
       "Name": "张三",
       "Account": "账号（手机号码）",
       "Password": "密码",
@@ -50,6 +52,7 @@
       ]
     },
     {
+      "Enable": true,
       "Name": "李四",
       "Account": "账号 2",
       "Password": "密码 2",
@@ -68,6 +71,8 @@
 }
 ```
 
+&emsp;&emsp;`AutoSignin` 字段配置是否自动签到。如不自动签到，则等待用户按任意键签到。
+
 &emsp;&emsp;`AutoExit` 字段配置已完成所有任务的执行或程序运行出错后，是否自动退出。如不自动退出，则等待用户按任意键退出。
 
 &emsp;&emsp;`Proxy` 字段配置网络代理，须以 `http://`、`https://`、`socks4://`、`socks4a://` 或 `socks5://` 开头。若为空字符串，则不使用代理。
@@ -81,6 +86,8 @@
 &emsp;&emsp;`RandomDelay` 字段配置是否在获取签到信息和开始签到之间随机插入以秒为单位的延迟以使多账号批量签到的时间呈一定随机性，以及该随机延迟的范围。若两个值都是 `0`，则不延迟签到；若两个值相同且不是 `0`，则以该固定值作为延迟秒数，因此多账号批量签到的时间可能看起来很整齐；若两个值不同，则在该范围内取随机值作为延迟秒数。延迟最大可设 120s。
 
 &emsp;&emsp;`SigninConfigs` 为签到任务配置，其中：
+
+&emsp;&emsp;`Enable` 字段配置这条签到配置是否启用。未启用的签到配置在解析时跳过。
 
 &emsp;&emsp;`Device` 字段（包含 `Code` 字段和 `PhoneModel` 字段）配置授权设备信息，可在易班校本化“设备识别”页面获取，留空则从接口获取。
 

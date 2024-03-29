@@ -1,23 +1,17 @@
 ﻿// See https://aka.ms/new-console-template for more information
-using com.github.xiangyuecn.rsacsharp;
-using Flurl;
 using Flurl.Http;
-using Newtonsoft.Json.Linq;
-using Newtonsoft.Json;
 using NLog;
-using System;
 using System.Net;
-using System.Reflection;
 using System.Text.Json.Nodes;
 using YBNAS;
 using System.Text.Json;
-using Flurl.Util;
-using System.Diagnostics;
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
 
 var asm = System.Reflection.Assembly.GetExecutingAssembly();
 string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
 
-Logger logger = NLog.LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
+Logger logger = LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
 logger.Info($"程序启动。");
 logger.Info($"{appVer} 由 Hollis 编写，源代码、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
 
@@ -40,6 +34,8 @@ try
     JsonNode confRoot = JsonNode.Parse(configStr)!;
     Config.AutoExit = confRoot["AutoExit"].Deserialize<bool>();
     logger.Debug($"配置 AutoExit: {Config.AutoExit}。");
+    Config.Proxy = confRoot["Proxy"].Deserialize<string>() ?? string.Empty;
+    logger.Debug($"配置 Proxy: {Config.Proxy}。");
     Config.Shuffle = confRoot["Shuffle"].Deserialize<bool>();
     logger.Debug($"配置 Shuffle: {Config.Shuffle}。");
     Config.MaxRunningTasks = confRoot["MaxRunningTasks"].Deserialize<int>();
@@ -56,9 +52,8 @@ try
         Config.MaxRetries = 3;
     }
     logger.Debug($"配置 MaxRetry: {Config.MaxRetries}。");
-    Config.RandomDelay = confRoot["RandomDelay"].Deserialize<List<int>>();
-    if (Config.RandomDelay == null ||
-        Config.RandomDelay.Count != 2 ||
+    Config.RandomDelay = confRoot["RandomDelay"].Deserialize<List<int>>() ?? [];
+    if (Config.RandomDelay.Count != 2 ||
         Config.RandomDelay[0] < 0 ||
         Config.RandomDelay[1] < 0 ||
         Config.RandomDelay[0] > 120 ||
@@ -70,44 +65,63 @@ try
         Config.RandomDelay = [1, 10];
     }
     logger.Debug($"配置 RandomDelay: [{Config.RandomDelay[0]}, {Config.RandomDelay[1]}]。");
-    Config.SigninConfigs = confRoot["SigninConfigs"].Deserialize<List<SigninConfig>>()!;
-    if (Config.SigninConfigs == null)
+    Config.SigninConfigs = confRoot["SigninConfigs"].Deserialize<List<SigninConfig>>() ?? [];
+    if (Config.SigninConfigs.Count == 0)
     {
-        logger.Fatal($"配置 SigninConfigs 为空。");
+        logger.Warn($"配置 SigninConfigs 为空。");
         PrintExitMsg();
         return -1;
     }
     foreach (SigninConfig conf in Config.SigninConfigs)
     {
 
-        SigninConfig tempSc = JsonConvert.DeserializeObject<SigninConfig>(JsonConvert.SerializeObject(conf))!;
+        SigninConfig tempSc = JsonSerializer.Deserialize<SigninConfig>(JsonSerializer.Serialize(conf, ServiceOptions.jsonSerializerOptions))!;
         tempSc.Password = "<已抹除>";
         logger.Debug($"解析签到配置 {tempSc}……"); // 在日志中抹除密码。
+        string signinConfigInvalidStr = $"第 {Config.SigninConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name) ? "" : "（" + conf.Name + "）")}无效，将跳过解析。";
         if (string.IsNullOrEmpty(conf.Account))
+        {
+            logger.Warn(signinConfigInvalidStr);
             continue;
+        }
         if (string.IsNullOrEmpty(conf.Password))
+        {
+            logger.Warn(signinConfigInvalidStr);
             continue;
-        if (conf.Position!.Count != 2)
+        }
+        if (conf.Position?.Count != 2)
+        {
+            logger.Warn(signinConfigInvalidStr);
             continue;
+        }
         if (string.IsNullOrEmpty(conf.Address))
+        {
+            logger.Warn(signinConfigInvalidStr);
             continue;
-        if (conf.TimeSpan!.Count != 4)
+        }
+        if (conf.TimeSpan?.Count != 4)
+        {
+            logger.Warn(signinConfigInvalidStr);
             continue;
-        int confBegTime = conf.TimeSpan![0] * 60 + conf.TimeSpan![1];
-        int confEndTime = conf.TimeSpan![2] * 60 + conf.TimeSpan![3];
+        }
+        int confBegTime = conf.TimeSpan[0] * 60 + conf.TimeSpan[1];
+        int confEndTime = conf.TimeSpan[2] * 60 + conf.TimeSpan[3];
         int curTime = curDateTime.Hour * 60 + curDateTime.Minute;
         if (curTime < confBegTime || curTime > confEndTime)
+        {
+            logger.Warn($"当前时间不在第 {Config.SigninConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name) ? "" : "（" + conf.Name + "）")}的 TimeSpan 内，此条配置将跳过解析。");
             continue;
+        }
         SigninTask task = new(
-            conf.Name is null ? "" : conf.Name,
-            conf.Account is null ? "" : conf.Account,
-            conf.Password is null ? "" : conf.Password,
-            $"{conf.Position![0]},{conf.Position![1]}",
-            conf.Address is null ? "" : conf.Address,
-            conf.TimeSpan![0],
-            conf.TimeSpan![1],
-            conf.TimeSpan![2],
-            conf.TimeSpan![3],
+            conf.Name,
+            conf.Account,
+            conf.Password,
+            conf.Position,
+            conf.Address,
+            conf.TimeSpan[0],
+            conf.TimeSpan[1],
+            conf.TimeSpan[2],
+            conf.TimeSpan[3],
             conf.Device
             );
         tasks.Add(task);
@@ -150,11 +164,20 @@ foreach (var item in tasks)
     item.OnError += St_OnError;
 }
 
+FlurlHttp.Clients.WithDefaults(builder => builder
+    .ConfigureInnerHandler(hch =>
+    {
+        hch.Proxy = new WebProxy("socks://127.0.0.1:7897");
+        hch.UseProxy = true;
+    }));
+
+//Console.WriteLine(await "https://www.google.com".GetStringAsync());
+
 for (int i = 0; i < tasks.Count; i++)
 {
     if (i >= Config.MaxRunningTasks) // 应用初始同时运行任务数限制。
         break;
-    var res = tasks[i].Run(); // 消除 CS4014 警告，https://learn.microsoft.com/zh-cn/dotnet/csharp/language-reference/compiler-messages/cs4014。
+    //var res = tasks[i].Run(); // 消除 CS4014 警告，https://learn.microsoft.com/zh-cn/dotnet/csharp/language-reference/compiler-messages/cs4014。
 }
 
 void UpdateStatus()
@@ -196,8 +219,8 @@ void St_OnError(SigninTask task, Error err)
     if (curRetries < Config.MaxRetries)
     {
         logger.Warn($"{logPrefix}出错，将进行第 {++curRetries} 次重试。");
+        retries[task.TaskGuid] = curRetries; // 在重试任务运行前增加重试次数。
         var res = task.Run();
-        retries[task.TaskGuid] = curRetries;
     }
     else
     {

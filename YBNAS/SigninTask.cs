@@ -1,20 +1,12 @@
 ﻿using com.github.xiangyuecn.rsacsharp;
 using Flurl;
 using Flurl.Http;
-using Microsoft.VisualBasic;
-using Newtonsoft.Json;
-using NLog;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Threading.Tasks;
 
 namespace YBNAS
 {
-    enum Error
+    internal enum Error
     {
         Unknown = -1,
         Ok,
@@ -25,29 +17,29 @@ namespace YBNAS
         SigninFailed
     }
 
-    struct User
+    internal struct User
     {
-        public string? UniversityName { get; set; }
+        public string? UniversityName { get; set; } // User 是服务器返回的结果，不知道这些值是否能是空。
         public string? UniversityId { get; set; }
         public string? PersonName { get; set; }
         public string PersonId { get; set; } // PersonId 总不该是 null 吧……
         public override readonly string ToString()
         {
-            return JsonConvert.SerializeObject(this);
+            return JsonSerializer.Serialize(this, ServiceOptions.jsonSerializerOptions);
         }
     }
 
-    struct Device
+    internal struct Device
     {
-        public string? Code { get; set; }
+        public string? Code { get; set; } // Device 是服务器返回的结果，不知道这些值是否能是空。
         public string? PhoneModel { get; set; }
         public override readonly string ToString()
         {
-            return JsonConvert.SerializeObject(this);
+            return JsonSerializer.Serialize(this, ServiceOptions.jsonSerializerOptions);
         }
     }
 
-    struct SigninInfo
+    internal struct SigninInfo
     {
         public bool IsServerRes { get; set; }
         public int State { get; set; } // 不该是 null。
@@ -56,7 +48,7 @@ namespace YBNAS
         public bool ShouldSigninToday { get; set; } // 不该是 null。
         public override readonly string ToString()
         {
-            return JsonConvert.SerializeObject(this);
+            return JsonSerializer.Serialize(this, ServiceOptions.jsonSerializerOptions);
         }
     }
 
@@ -77,7 +69,7 @@ namespace YBNAS
         private string _name = "";
         private readonly string _account = "";
         private readonly string _password = "";
-        private readonly string _position = "";
+        private readonly List<double> _position = [0.0, 0.0];
         private readonly string _address = "";
         private readonly int _beginHour = 0;
         private readonly int _beginMin = 0;
@@ -98,16 +90,16 @@ namespace YBNAS
         public delegate void ErrorHandler(SigninTask st, Error err);
         public event ErrorHandler? OnError;
 
-        private CookieJar _jar = new();
-        private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
+        public CookieJar _jar = new();
+        public static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
         public string TaskGuid { get { return _taskGuid; } }
         public TaskStatus Status { get { return _status; } }
 
         public string Name { get { return _name; } }
         public string Account { get { return _account; } }
-        //public string Password { get { return _password; } }
-        public string Position { get { return _position; } }
+        public string Password { get { return _password; } }
+        public List<double> Position { get { return _position; } }
         public string Address { get { return _address; } }
         public int BeginHour { get { return _beginHour; } }
         public int BeginMin { get { return _beginMin; } }
@@ -119,12 +111,13 @@ namespace YBNAS
 
         //public int RunCount { get { return _runCount; } } 现在重试次数变为可配置项，需要更清晰地追踪重试次数。打算在 Program.cs 里实现。
 
-        public SigninTask(string name, string account, string password, string position, string address, int beginHour, int beginMin, int endHour, int endMin, Device device = new())
+        public SigninTask(string name, string account, string password, List<double> position, string address, int beginHour, int beginMin, int endHour, int endMin, Device device = new())
         {
             _name = name;
             _account = account;
             _password = password;
-            _position = position;
+            if (position.Count == 2)
+                _position = position;
             _address = address;
             _beginHour = beginHour;
             _beginMin = beginMin;
@@ -312,7 +305,7 @@ namespace YBNAS
                 .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "YiBan", AppVersion = "5.0" })
                 .WithCookies(_jar);
             var loginBody = new { oauth_uname = _account, oauth_upwd = pwdEncoded, client_id = "95626fa3080300ea", redirect_uri = "https://f.yiban.cn/iapp7463" };
-            _logger.Debug($"{GetLogPrefix()}：发送请求：{reqLogin.Url}，loginBody：{JsonConvert.SerializeObject(loginBody)}……");
+            _logger.Debug($"{GetLogPrefix()}：发送请求：{reqLogin.Url}，loginBody：{JsonSerializer.Serialize(loginBody, ServiceOptions.jsonSerializerOptions)}……");
             string loginContent = await reqLogin.PostUrlEncodedAsync(loginBody).ReceiveString();
             _logger.Debug($"{GetLogPrefix()}：收到响应：{loginContent}。");
             if (loginContent.Contains("error"))
@@ -458,8 +451,8 @@ namespace YBNAS
                 .SetQueryParams(new { CSRF = csrfToken })
                 .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
-            var signinBody = new { OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonConvert.SerializeObject(new { Reason = "", AttachmentFileName = "", LngLat = _position, Address = _address }) }; // SignInfo 是字符串。
-            _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignin.Url}，SigninBody：{JsonConvert.SerializeObject(signinBody)}……");
+            var signinBody = new { OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonSerializer.Serialize(new { Reason = "", AttachmentFileName = "", LngLat = $"{_position[0]},{_position[1]}", Address = _address }) }; // SignInfo 是字符串。
+            _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignin.Url}，SigninBody：{JsonSerializer.Serialize(signinBody, ServiceOptions.jsonSerializerOptions)}……");
             string signinContent = await reqSignin.PostUrlEncodedAsync(signinBody).ReceiveString();
             _logger.Debug($"{GetLogPrefix()}：收到响应：{signinContent}。");
             JsonNode signinResNode = JsonNode.Parse(signinContent!)!;

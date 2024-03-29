@@ -1,5 +1,7 @@
 # Hollis 的易班校本化晚点签到程序
 
+&emsp;&emsp;本项目**仅供学习使用**，使用时**自负风险**。
+
 &emsp;&emsp;适用于黑龙江科技大学，其他学校未测试。我的学院在范围内签到时不需提交照片，因此没写相关代码，如果你在黑龙江科技大学并且你的学院在签到时必须提交照片，请联系我适配。
 
 &emsp;&emsp;感谢 [yiban](https://github.com/Sricor/yiban) 项目提供参考。
@@ -23,6 +25,7 @@
 ``` JSON
 {
   "AutoExit": false,
+  "Proxy": "",
   "Shuffle": true,
   "MaxRunningTasks": 4,
   "MaxRetries": 3,
@@ -67,6 +70,8 @@
 
 &emsp;&emsp;`AutoExit` 字段配置已完成所有任务的执行或程序运行出错后，是否自动退出。如不自动退出，则等待用户按任意键退出。
 
+&emsp;&emsp;`Proxy` 字段配置网络代理，须以 `http://`、`https://`、`socks4://`、`socks4a://` 或 `socks5://` 开头。若为空字符串，则不使用代理。
+
 &emsp;&emsp;`Shuffle` 字段配置是否打乱签到顺序。若不打乱，则按照配置文件内的顺序签到。
 
 &emsp;&emsp;`MaxRunningTasks` 字段配置初始同时运行任务数，可以简单理解为最多同时运行几个任务，内置值及配置默认值均为 `4`。
@@ -86,3 +91,9 @@
 &emsp;&emsp;`Position` 和 `Address` 所需值可以在[这个网页](https://lbs.amap.com/api/javascript-api/guide/services/geocoder)的“UI组件-拖拽选址”部分获取。
 
 &emsp;&emsp;`TimeSpan` 字段配置签到时间段，按顺序分别填开始小时、开始分钟、结束小时、结束分钟。程序运行时读取系统时间，若其不在此字段设定的时间段内，则跳过此用户的签到任务创建。另外，签到时也会动态获取当前时间，与校本化接口返回的签到时间段比对，若不在允许的时间段内，同样也会跳过签到。
+
+## 使用的库
+
+- [Flurl](https://github.com/tmenier/Flurl)
+- [RSA-csharp](https://github.com/xiangyuecn/RSA-csharp)
+- [NLog](https://github.com/NLog/NLog)

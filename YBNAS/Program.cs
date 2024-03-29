@@ -35,7 +35,24 @@ try
     Config.AutoExit = confRoot["AutoExit"].Deserialize<bool>();
     logger.Debug($"配置 AutoExit: {Config.AutoExit}。");
     Config.Proxy = confRoot["Proxy"].Deserialize<string>() ?? string.Empty;
-    logger.Debug($"配置 Proxy: {Config.Proxy}。");
+    if (!string.IsNullOrEmpty(Config.Proxy) &&
+        !Config.Proxy.StartsWith("http://") &&
+        !Config.Proxy.StartsWith("https://") &&
+        !Config.Proxy.StartsWith("socks4://") &&
+        !Config.Proxy.StartsWith("socks4a://") &&
+        !Config.Proxy.StartsWith("socks5://"))
+    {
+        logger.Warn($"配置 Proxy 无效，将使用内置值空字符串。");
+        Config.Proxy = string.Empty;
+    }
+    FlurlHttp.Clients.WithDefaults(builder => builder
+    .ConfigureInnerHandler(hch =>
+    {
+        if (!string.IsNullOrEmpty(Config.Proxy))
+            hch.Proxy = new WebProxy(Config.Proxy);
+        hch.UseProxy = !string.IsNullOrEmpty(Config.Proxy); // 经测试会默认使用代理，若 Proxy 未填写则是系统代理。
+    }));
+    logger.Debug($"配置 Proxy: {(string.IsNullOrEmpty(Config.Proxy) ? "<空字符串>" : Config.Proxy)}。");
     Config.Shuffle = confRoot["Shuffle"].Deserialize<bool>();
     logger.Debug($"配置 Shuffle: {Config.Shuffle}。");
     Config.MaxRunningTasks = confRoot["MaxRunningTasks"].Deserialize<int>();
@@ -164,20 +181,11 @@ foreach (var item in tasks)
     item.OnError += St_OnError;
 }
 
-FlurlHttp.Clients.WithDefaults(builder => builder
-    .ConfigureInnerHandler(hch =>
-    {
-        hch.Proxy = new WebProxy("socks://127.0.0.1:7897");
-        hch.UseProxy = true;
-    }));
-
-//Console.WriteLine(await "https://www.google.com".GetStringAsync());
-
 for (int i = 0; i < tasks.Count; i++)
 {
     if (i >= Config.MaxRunningTasks) // 应用初始同时运行任务数限制。
         break;
-    //var res = tasks[i].Run(); // 消除 CS4014 警告，https://learn.microsoft.com/zh-cn/dotnet/csharp/language-reference/compiler-messages/cs4014。
+    var res = tasks[i].Run(); // 消除 CS4014 警告，https://learn.microsoft.com/zh-cn/dotnet/csharp/language-reference/compiler-messages/cs4014。
 }
 
 void UpdateStatus()

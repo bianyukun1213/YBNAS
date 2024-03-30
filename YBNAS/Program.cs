@@ -105,19 +105,19 @@ try
         logger.Debug($"解析签到配置 {tempSc}……"); // 在日志中抹除密码。
         var getSigninConfigSkippedStr = (string reason) =>
         {
-            return $"第 {Config.SigninConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name) ? "" : "（" + conf.Name + "）")}{reason}，将跳过解析。";
+            return $"第 {Config.SigninConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name.Trim()) ? "" : "（" + conf.Name + "）")}{reason}，将跳过解析。";
         };
         if (!conf.Enable)
         {
             logger.Info(getSigninConfigSkippedStr("未启用"));
             continue;
         }
-        if (string.IsNullOrEmpty(conf.Account))
+        if (string.IsNullOrEmpty(conf.Account.Trim()))
         {
             logger.Warn(getSigninConfigSkippedStr("账号为空"));
             continue;
         }
-        if (string.IsNullOrEmpty(conf.Password))
+        if (string.IsNullOrEmpty(conf.Password.Trim()))
         {
             logger.Warn(getSigninConfigSkippedStr("密码为空"));
             continue;
@@ -127,7 +127,7 @@ try
             logger.Warn(getSigninConfigSkippedStr("签到坐标格式错误"));
             continue;
         }
-        if (string.IsNullOrEmpty(conf.Address))
+        if (string.IsNullOrEmpty(conf.Address.Trim()))
         {
             logger.Warn(getSigninConfigSkippedStr("签到地址为空"));
             continue;

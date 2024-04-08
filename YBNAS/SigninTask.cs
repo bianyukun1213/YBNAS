@@ -1,6 +1,7 @@
 ﻿using com.github.xiangyuecn.rsacsharp;
 using Flurl;
 using Flurl.Http;
+using Flurl.Http.Content;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -39,6 +40,17 @@ namespace YBNAS
         }
     }
 
+    internal struct SigninPhotoInfo
+    {
+        public string Name { get; set; }
+        public string Type { get; set; }
+        public long Size { get; set; }
+        public override readonly string ToString()
+        {
+            return JsonSerializer.Serialize(this, ServiceOptions.jsonSerializerOptions);
+        }
+    }
+
     internal struct SigninInfo
     {
         public bool IsServerRes { get; set; }
@@ -46,6 +58,17 @@ namespace YBNAS
         public long BeginTime { get; set; } // 不该是 null。
         public long EndTime { get; set; } // 不该是 null。
         public bool ShouldSigninToday { get; set; } // 不该是 null。
+        public override readonly string ToString()
+        {
+            return JsonSerializer.Serialize(this, ServiceOptions.jsonSerializerOptions);
+        }
+    }
+
+    internal struct YibanNightAttendanceSigninApiRes
+    {
+        public int Code { get; set; }
+        public string Msg { get; set; }
+        public JsonNode Data { get; set; }
         public override readonly string ToString()
         {
             return JsonSerializer.Serialize(this, ServiceOptions.jsonSerializerOptions);
@@ -72,6 +95,8 @@ namespace YBNAS
         private readonly string _password = "";
         private readonly List<double> _position = [0.0, 0.0];
         private readonly string _address = "";
+        private readonly string _photo = "";
+        private readonly string _reason = "";
         private readonly int _beginHour = 0;
         private readonly int _beginMin = 0;
         private readonly int _endHour = 0;
@@ -103,6 +128,8 @@ namespace YBNAS
         public string Password { get { return _password; } }
         public List<double> Position { get { return _position; } }
         public string Address { get { return _address; } }
+        public string Photo { get { return _photo; } }
+        public string Reason { get { return _reason; } }
         public int BeginHour { get { return _beginHour; } }
         public int BeginMin { get { return _beginMin; } }
         public int EndHour { get { return _endHour; } }
@@ -113,7 +140,7 @@ namespace YBNAS
 
         //public int RunCount { get { return _runCount; } } 现在重试次数变为可配置项，需要更清晰地追踪重试次数。打算在 Program.cs 里实现。
 
-        public SigninTask(string name, string account, string password, List<double> position, string address, int beginHour, int beginMin, int endHour, int endMin, Device device = new())
+        public SigninTask(string name, string account, string password, List<double> position, string address, string photo, string reason, int beginHour, int beginMin, int endHour, int endMin, Device device = new())
         {
             _name = name;
             _account = account;
@@ -121,6 +148,8 @@ namespace YBNAS
             if (position.Count == 2)
                 _position = position;
             _address = address;
+            _photo = photo;
+            _reason = reason;
             _beginHour = beginHour;
             _beginMin = beginMin;
             _endHour = endHour;
@@ -141,6 +170,14 @@ namespace YBNAS
         {
             Random rd = new(Guid.NewGuid().GetHashCode()); // 用 GUID 作种子，高频调用也随机。
             return rd.Next(minValue, maxValue);
+        }
+
+        private static YibanNightAttendanceSigninApiRes ParseYibanNightAttendanceSigninApiRes(JsonNode node)
+        {
+            int code = node["code"].Deserialize<int>();
+            string msg = node["msg"].Deserialize<string>()!;
+            JsonNode data = node["data"]!;
+            return new YibanNightAttendanceSigninApiRes { Code = code, Msg = msg, Data = data };
         }
 
         public async Task Run()
@@ -262,7 +299,16 @@ namespace YBNAS
                     _logger.Info($"{GetLogPrefix()}：延迟 {sec} 秒签到……");
                     await Task.Delay(sec * 1000);
                 }
-                bool signinStatus = await Signin(csrfToken, _device, userAgent);
+
+                SigninPhotoInfo signinPhotoInfo = new SigninPhotoInfo();
+                if (!string.IsNullOrEmpty(_photo))
+                {
+                    FileInfo photoFileInfo = new(_photo);
+                    signinPhotoInfo.Name = $"yiban_camera_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.jpg";
+                    signinPhotoInfo.Type = "image/jpeg";
+                    signinPhotoInfo.Size = photoFileInfo.Length;
+                }
+                bool signinStatus = await Signin(csrfToken, _device, signinPhotoInfo, userAgent);
                 if (!signinStatus) // 签到失败。
                 {
                     _status = TaskStatus.Aborted;
@@ -377,15 +423,13 @@ namespace YBNAS
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqAuth.Url}……");
             var authContent = await reqAuth.GetStringAsync();
             _logger.Debug($"{GetLogPrefix()}：收到响应：{authContent}");
-            JsonNode authResNode = JsonNode.Parse(authContent!)!;
-            int authResCode = authResNode["code"].Deserialize<int>();
-            string authResMsg = authResNode["msg"].Deserialize<string>()!;
-            if (authResCode != 0)
+            YibanNightAttendanceSigninApiRes authRes = ParseYibanNightAttendanceSigninApiRes(JsonNode.Parse(authContent!)!);
+            if (authRes.Code != 0)
             {
-                _logger.Error($"{GetLogPrefix()}：校本化认证失败，服务端返回消息：{authResMsg}。");
+                _logger.Error($"{GetLogPrefix()}：校本化认证失败，服务端返回消息：{authRes.Msg}。");
                 return new User();
             }
-            JsonNode authResData = authResNode["data"]!;
+            JsonNode authResData = authRes.Data;
             User user = new()
             {
                 UniversityName = authResData["UniversityName"].Deserialize<string>(),
@@ -408,15 +452,13 @@ namespace YBNAS
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetDevice.Url}……");
             var deviceContent = await reqGetDevice.GetStringAsync();
             _logger.Debug($"{GetLogPrefix()}：收到响应：{deviceContent}");
-            JsonNode deviceResNode = JsonNode.Parse(deviceContent!)!;
-            int deviceResCode = deviceResNode["code"].Deserialize<int>();
-            string deviceResMsg = deviceResNode["msg"].Deserialize<string>()!;
-            if (deviceResCode != 0)
+            YibanNightAttendanceSigninApiRes deviceRes = ParseYibanNightAttendanceSigninApiRes(JsonNode.Parse(deviceContent!)!);
+            if (deviceRes.Code != 0)
             {
-                _logger.Error($"{GetLogPrefix()}：获取授权设备失败，服务端返回消息：{deviceResMsg}。");
+                _logger.Error($"{GetLogPrefix()}：获取授权设备失败，服务端返回消息：{deviceRes.Msg}。");
                 return new Device();
             }
-            JsonNode deviceResData = deviceResNode["data"]!;
+            JsonNode deviceResData = deviceRes.Data;
             Device device = new()
             {
                 Code = deviceResData["Code"].Deserialize<string>(),
@@ -437,15 +479,13 @@ namespace YBNAS
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSigninInfo.Url}……");
             var infoContent = await reqSigninInfo.GetStringAsync();
             _logger.Debug($"{GetLogPrefix()}：收到响应：{infoContent}");
-            JsonNode infoResNode = JsonNode.Parse(infoContent!)!;
-            int infoResCode = infoResNode["code"].Deserialize<int>();
-            string infoResMsg = infoResNode["msg"].Deserialize<string>()!;
-            if (infoResCode != 0)
+            YibanNightAttendanceSigninApiRes infoRes = ParseYibanNightAttendanceSigninApiRes(JsonNode.Parse(infoContent!)!);
+            if (infoRes.Code != 0)
             {
-                _logger.Error($"{GetLogPrefix()}：获取签到信息失败，服务端返回消息：{infoResMsg}。");
+                _logger.Error($"{GetLogPrefix()}：获取签到信息失败，服务端返回消息：{infoRes.Msg}。");
                 return new();
             }
-            JsonNode infoResData = infoResNode["data"]!;
+            JsonNode infoResData = infoRes.Data;
             SigninInfo signinInfo = new()
             {
                 IsServerRes = true /* 标记已从服务器获取到签到信息，区别于默认的签到信息。 */,
@@ -458,24 +498,74 @@ namespace YBNAS
             return signinInfo;
         }
 
-        private async Task<bool> Signin(string csrfToken, Device device, string userAgent)
+        private async Task<bool> Signin(string csrfToken, Device device, SigninPhotoInfo signinPhotoInfo, string userAgent)
         {
             _logger.Info($"{GetLogPrefix()}：晚点签到，启动！");
+            // 附加照片。
+            string attachmentFilename = "";
+            if (!string.IsNullOrEmpty(signinPhotoInfo.Name) && !string.IsNullOrEmpty(signinPhotoInfo.Type) && signinPhotoInfo.Size != 0)
+            {
+                var reqGetUploadUri = "https://api.uyiban.com/"
+                    .AppendPathSegment("nightAttendance/student/index/uploadUri")
+                    .SetQueryParams(new { name = signinPhotoInfo.Name })
+                    .SetQueryParams(new { type = signinPhotoInfo.Type })
+                    .SetQueryParams(new { size = signinPhotoInfo.Size })
+                    .SetQueryParams(new { CSRF = csrfToken })
+                    .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                    .WithCookies(_jar);
+                _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetUploadUri.Url}……");
+                var uploadUriContent = await reqGetUploadUri.GetStringAsync();
+                _logger.Debug($"{GetLogPrefix()}：收到响应：{uploadUriContent}");
+                YibanNightAttendanceSigninApiRes uploadUriRes = ParseYibanNightAttendanceSigninApiRes(JsonNode.Parse(uploadUriContent!)!);
+                if (uploadUriRes.Code != 0)
+                {
+                    _logger.Error($"{GetLogPrefix()}：获取照片上传 URI 失败，服务端返回消息：{uploadUriRes.Msg}。");
+                    return false;
+                }
+                attachmentFilename = uploadUriRes.Data["AttachmentFileName"].Deserialize<string>()!;
+                string signedUrl = uploadUriRes.Data["signedUrl"].Deserialize<string>()!;
+                var reqUploadPhoto = signedUrl
+                    .WithHeaders(new { Content_Type = "image/jpeg", Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                    .WithCookies(_jar);
+                _logger.Debug($"{GetLogPrefix()}：发送请求：{reqUploadPhoto.Url}……");
+                var uploadPhotoContent = await reqUploadPhoto.PutAsync(new FileContent(_photo));
+                _logger.Debug($"{GetLogPrefix()}：收到响应：HTTP {uploadPhotoContent.StatusCode}");
+                if (uploadPhotoContent.StatusCode != 200)
+                {
+                    _logger.Error($"{GetLogPrefix()}：照片上传失败，服务端返回 HTTP 状态码：{uploadPhotoContent.StatusCode}。");
+                    return false;
+                }
+                var reqGetDownloadUri = "https://api.uyiban.com/"
+                    .AppendPathSegment("nightAttendance/student/index/downloadUri")
+                    .SetQueryParams(new { AttachmentFileName = attachmentFilename })
+                    .SetQueryParams(new { CSRF = csrfToken })
+                    .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                    .WithCookies(_jar);
+                _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetDownloadUri.Url}……");
+                var downloadUriContent = await reqGetDownloadUri.GetStringAsync();
+                _logger.Debug($"{GetLogPrefix()}：收到响应：{downloadUriContent}");
+                YibanNightAttendanceSigninApiRes downloadUriRes = ParseYibanNightAttendanceSigninApiRes(JsonNode.Parse(downloadUriContent!)!);
+                if (downloadUriRes.Code != 0)
+                {
+                    _logger.Error($"{GetLogPrefix()}：获取照片下载 URI 失败，服务端返回消息：{downloadUriRes.Msg}。");
+                    return false;
+                }
+                JsonNode downloadUriResData = downloadUriRes.Data;
+                _logger.Debug($"{GetLogPrefix()}：解析出照片下载 URI：{downloadUriResData.Deserialize<string>()!}。");
+            }
             var reqSignin = "https://api.uyiban.com/"
                 .AppendPathSegment("nightAttendance/student/index/signIn")
                 .SetQueryParams(new { CSRF = csrfToken })
                 .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
-            var signinBody = new { OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonSerializer.Serialize(new { Reason = "", AttachmentFileName = "", LngLat = $"{_position[0]},{_position[1]}", Address = _address }) }; // SignInfo 是字符串。
+            var signinBody = new { OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonSerializer.Serialize(new { Reason = _reason, AttachmentFileName = attachmentFilename, LngLat = $"{_position[0]},{_position[1]}", Address = _address }) }; // SignInfo 是字符串。
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignin.Url}，SigninBody：{JsonSerializer.Serialize(signinBody, ServiceOptions.jsonSerializerOptions)}……");
             string signinContent = await reqSignin.PostUrlEncodedAsync(signinBody).ReceiveString();
             _logger.Debug($"{GetLogPrefix()}：收到响应：{signinContent}。");
-            JsonNode signinResNode = JsonNode.Parse(signinContent!)!;
-            int signinResCode = signinResNode["code"].Deserialize<int>();
-            string signinResMsg = signinResNode["msg"].Deserialize<string>()!;
-            if (signinResCode != 0)
+            YibanNightAttendanceSigninApiRes siginRes = ParseYibanNightAttendanceSigninApiRes(JsonNode.Parse(signinContent!)!);
+            if (siginRes.Code != 0)
             {
-                _logger.Error($"{GetLogPrefix()}：签到失败，服务端返回消息：{signinResMsg}。");
+                _logger.Error($"{GetLogPrefix()}：签到失败，服务端返回消息：{siginRes.Msg}。");
                 return false;
             }
             return true;

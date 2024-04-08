@@ -5,6 +5,7 @@ using System.Net;
 using System.Text.Json.Nodes;
 using YBNAS;
 using System.Text.Json;
+using System.IO;
 
 var asm = System.Reflection.Assembly.GetExecutingAssembly();
 string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
@@ -103,10 +104,10 @@ try
         SigninConfig tempSc = JsonSerializer.Deserialize<SigninConfig>(JsonSerializer.Serialize(conf, ServiceOptions.jsonSerializerOptions))!;
         tempSc.Password = "<已抹除>";
         logger.Debug($"解析签到配置 {tempSc}……"); // 在日志中抹除密码。
-        var getSigninConfigSkippedStr = (string reason) =>
+        string getSigninConfigSkippedStr(string reason)
         {
             return $"第 {Config.SigninConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name.Trim()) ? "" : "（" + conf.Name + "）")}{reason}，将跳过解析。";
-        };
+        }
         if (!conf.Enable)
         {
             logger.Info(getSigninConfigSkippedStr("未启用"));
@@ -132,6 +133,24 @@ try
             logger.Warn(getSigninConfigSkippedStr("签到地址为空"));
             continue;
         }
+
+        if (!string.IsNullOrEmpty(conf.Photo.Trim()))
+        {
+            try
+            {
+                FileInfo fileInfo = new(conf.Photo);
+                if ((!fileInfo.Extension.ToLower().EndsWith(".jpg") && !fileInfo.Extension.ToLower().EndsWith(".jpeg")) || fileInfo.Length == 0)
+                {
+                    logger.Warn(getSigninConfigSkippedStr("照片文件无效"));
+                    continue;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Warn(ex, getSigninConfigSkippedStr("照片文件读取失败"));
+                continue;
+            }
+        }
         if (conf.TimeSpan?.Count != 4)
         {
             logger.Warn(getSigninConfigSkippedStr("签到时间段格式错误"));
@@ -151,6 +170,8 @@ try
             conf.Password,
             conf.Position,
             conf.Address,
+            conf.Photo,
+            conf.Reason,
             conf.TimeSpan[0],
             conf.TimeSpan[1],
             conf.TimeSpan[2],

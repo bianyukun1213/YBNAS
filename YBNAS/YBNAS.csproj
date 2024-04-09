@@ -5,9 +5,14 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>1.9.1</Version>
+    <Version>1.10.0</Version>
     <PackageProjectUrl>https://github.com/bianyukun1213/YBNAS</PackageProjectUrl>
     <PublishAot>False</PublishAot>
+    <Authors>Hollis</Authors>
+    <RepositoryUrl>https://github.com/bianyukun1213/YBNAS</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageId>Hollis.$(AssemblyName)</PackageId>
+    <Title>$(AssemblyName)</Title>
   </PropertyGroup>
 
   <ItemGroup>

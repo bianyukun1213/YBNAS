@@ -30,7 +30,7 @@
   "Shuffle": true,
   "MaxRunningTasks": 4,
   "MaxRetries": 3,
-  "RandomDelay": [1, 10],
+  "RandomDelay": [ 1, 10 ],
   "SigninConfigs": [
     {
       "Enable": true,
@@ -46,9 +46,13 @@
         45.820275900282255
       ],
       "Address": "黑龙江省哈尔滨市松北区浦源路2298号靠近黑龙江科技大学",
+      "Photo": "",
+      "Reason": "",
       "TimeSpan": [
-        21, 50,
-        22, 40
+        21,
+        50,
+        22,
+        40
       ]
     },
     {
@@ -58,13 +62,17 @@
       "Password": "密码 2",
       "Device": {},
       "Position": [
-        126.65892872841522,
-        45.820275900282255
+        126.642464,
+        45.756982
       ],
-      "Address": "黑龙江省哈尔滨市松北区浦源路2298号靠近黑龙江科技大学",
+      "Address": "黑龙江省哈尔滨市南岗区花园街道西大直街国际饭店",
+      "Photo": "D:\\signin_photo\\photo.jpg",
+      "Reason": "跟国际友人聚餐。",
       "TimeSpan": [
-        21, 50,
-        22, 40
+        21,
+        50,
+        22,
+        40
       ]
     }
   ]
@@ -93,9 +101,15 @@
 
 &emsp;&emsp;`Position` 字段配置签到坐标，第一个值是经度，第二个值是纬度，默认坐标在第十八学生公寓。
 
-&emsp;&emsp;`Address` 字段配置签到地址。
+&emsp;&emsp;`Address` 字段配置对应的签到地址。
 
 &emsp;&emsp;`Position` 和 `Address` 所需值可以在[这个网页](https://lbs.amap.com/api/javascript-api/guide/services/geocoder)的“UI组件-拖拽选址”部分获取。
+
+&emsp;&emsp;`Photo` 字段配置附件照片的路径。照片要求为 JPEG 格式，且具有扩展名 `.jpg` 或 `.jpeg`。在 Windows 系统下，路径中的反斜杠需要输两个。
+
+&emsp;&emsp;`Reason` 字段配置签到原因。
+
+&emsp;&emsp;对于**黑龙江科技大学**，**签到**坐标和地址**在校内时**，**不应填写 `Photo` 和 `Reason` 字段**，而是保留为空字符串。
 
 &emsp;&emsp;`TimeSpan` 字段配置签到时间段，按顺序分别填开始小时、开始分钟、结束小时、结束分钟。程序运行时读取系统时间，若其不在此字段设定的时间段内，则跳过此用户的签到任务创建。另外，签到时也会动态获取当前时间，与校本化接口返回的签到时间段比对，若不在允许的时间段内，同样也会跳过签到。
 

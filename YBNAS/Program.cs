@@ -5,7 +5,6 @@ using System.Net;
 using System.Text.Json.Nodes;
 using YBNAS;
 using System.Text.Json;
-using System.IO;
 
 var asm = System.Reflection.Assembly.GetExecutingAssembly();
 string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
@@ -13,7 +12,7 @@ string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
 Console.Title = appVer;
 Logger logger = LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
 logger.Info("程序启动。");
-logger.Info($"{appVer} 由 Hollis 编写，源代码、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
+logger.Info($"{appVer} 由 Hollis 编写，源代码、许可证、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
 
 DateTime curDateTime = DateTime.Now;
 List<SigninTask> tasks = [];
@@ -113,12 +112,12 @@ try
             logger.Info(getSigninConfigSkippedStr("未启用"));
             continue;
         }
-        if (string.IsNullOrEmpty(conf.Account.Trim()))
+        if (string.IsNullOrEmpty(conf.Account?.Trim()))
         {
             logger.Warn(getSigninConfigSkippedStr("账号为空"));
             continue;
         }
-        if (string.IsNullOrEmpty(conf.Password.Trim()))
+        if (string.IsNullOrEmpty(conf.Password?.Trim()))
         {
             logger.Warn(getSigninConfigSkippedStr("密码为空"));
             continue;
@@ -128,18 +127,17 @@ try
             logger.Warn(getSigninConfigSkippedStr("签到坐标格式错误"));
             continue;
         }
-        if (string.IsNullOrEmpty(conf.Address.Trim()))
+        if (string.IsNullOrEmpty(conf.Address?.Trim()))
         {
             logger.Warn(getSigninConfigSkippedStr("签到地址为空"));
             continue;
         }
-
-        if (!string.IsNullOrEmpty(conf.Photo.Trim()))
+        if (!string.IsNullOrEmpty(conf.Photo?.Trim()))
         {
             try
             {
                 FileInfo fileInfo = new(conf.Photo);
-                if ((!fileInfo.Extension.ToLower().EndsWith(".jpg") && !fileInfo.Extension.ToLower().EndsWith(".jpeg")) || fileInfo.Length == 0)
+                if ((!fileInfo.Extension.Equals(".jpg", StringComparison.CurrentCultureIgnoreCase) && !fileInfo.Extension.Equals(".jpeg", StringComparison.CurrentCultureIgnoreCase)) || fileInfo.Length == 0)
                 {
                     logger.Warn(getSigninConfigSkippedStr("照片文件无效"));
                     continue;
@@ -170,7 +168,7 @@ try
             conf.Password,
             conf.Position,
             conf.Address,
-            conf.Photo,
+            conf.Photo ?? "",
             conf.Reason,
             conf.TimeSpan[0],
             conf.TimeSpan[1],

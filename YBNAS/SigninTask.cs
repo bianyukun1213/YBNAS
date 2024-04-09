@@ -300,7 +300,7 @@ namespace YBNAS
                     await Task.Delay(sec * 1000);
                 }
 
-                SigninPhotoInfo signinPhotoInfo = new SigninPhotoInfo();
+                SigninPhotoInfo signinPhotoInfo = new();
                 if (!string.IsNullOrEmpty(_photo))
                 {
                     FileInfo photoFileInfo = new(_photo);

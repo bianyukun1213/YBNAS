@@ -254,38 +254,47 @@ namespace YBNAS
                     OnError?.Invoke(this, Error.SigninInfoInvalid);
                     return;
                 }
+                if (info.State == 4) // 表示签到状态已被更改。
+                {
+                    _logger.Info($"{GetLogPrefix()}：签到状态已被更改，无法签到，将跳过。");
+                    _status = TaskStatus.Skipped;
+                    _statusText = "无法签到，因为签到状态已被更改";
+                    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
+                    OnSkip?.Invoke(this, Error.Ok);
+                    return;
+                }
                 if (info.State == 3) // 表示已签到。
                 {
-                    _logger.Info($"{GetLogPrefix()}：今天已签到，将跳过。");
+                    _logger.Info($"{GetLogPrefix()}：已签到，将跳过。");
                     _status = TaskStatus.Skipped;
-                    _statusText = "今天已签到";
+                    _statusText = "已签到";
                     _logger.Debug($"{GetLogPrefix()}：跳过运行。");
                     OnSkip?.Invoke(this, Error.Ok);
                     return;
                 }
                 if (info.State == 2) // 无需签到，可能已请假。
                 {
-                    _logger.Info($"{GetLogPrefix()}：今天无需签到，将跳过。");
+                    _logger.Info($"{GetLogPrefix()}：无需签到，将跳过。");
                     _status = TaskStatus.Skipped;
-                    _statusText = "今天无需签到";
+                    _statusText = "无需签到";
                     _logger.Debug($"{GetLogPrefix()}：跳过运行。");
                     OnSkip?.Invoke(this, Error.Ok);
                     return;
                 }
                 if (info.State == 1)
                 {
-                    _logger.Info($"{GetLogPrefix()}：不在学校要求的签到时间段内，将跳过。"); // 最好让用户一眼知道是哪个人在哪个学校因为未到时间签到失败。
+                    _logger.Info($"{GetLogPrefix()}：不在学校要求的签到时间段内，无法签到，将跳过。"); // 最好让用户一眼知道是哪个人在哪个学校因为未到时间签到失败。
                     _status = TaskStatus.Skipped;
-                    _statusText = "未到签到时间";
+                    _statusText = "无法签到，因为不在签到时间段内";
                     _logger.Debug($"{GetLogPrefix()}：跳过运行。");
                     OnSkip?.Invoke(this, Error.Ok);
                     return;
                 }
                 if (info.State != 0) // 因为其他原因不适宜签到。
                 {
-                    _logger.Info($"{GetLogPrefix()}：今天无需签到或无法签到，（签到信息 State 值为 {info.State}。）将跳过。");
+                    _logger.Info($"{GetLogPrefix()}：无需签到或无法签到，（原因未知，State 值为 {info.State}。）将跳过。");
                     _status = TaskStatus.Skipped;
-                    _statusText = "今天无需或无法签到";
+                    _statusText = $"无需签到或无法签到，原因未知，State 值为 {info.State}";
                     _logger.Debug($"{GetLogPrefix()}：跳过运行。");
                     OnSkip?.Invoke(this, Error.Ok);
                     return;

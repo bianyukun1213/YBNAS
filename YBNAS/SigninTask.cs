@@ -90,13 +90,13 @@ namespace YBNAS
         private TaskStatus _status;
         private string _statusText;
 
-        private string _name = "";
-        private readonly string _account = "";
-        private readonly string _password = "";
+        private string _name = string.Empty;
+        private readonly string _account = string.Empty;
+        private readonly string _password = string.Empty;
         private readonly List<double> _position = [0.0, 0.0];
-        private readonly string _address = "";
-        private readonly string _photo = "";
-        private readonly string _reason = "";
+        private readonly string _address = string.Empty;
+        private readonly string _photo = string.Empty;
+        private readonly string _reason = string.Empty;
         private readonly int _beginHour = 0;
         private readonly int _beginMin = 0;
         private readonly int _endHour = 0;
@@ -104,8 +104,6 @@ namespace YBNAS
 
         private User _user;
         private Device _device;
-
-        //private int _runCount = 0; 现在重试次数变为可配置项，需要更清晰地追踪重试次数。打算在 Program.cs 里实现。
 
         public delegate void RunHandler(SigninTask st, Error err);
         public event RunHandler? OnRun;
@@ -138,8 +136,6 @@ namespace YBNAS
         public User User { get { return _user; } }
         public Device Device { get { return _device; } }
 
-        //public int RunCount { get { return _runCount; } } 现在重试次数变为可配置项，需要更清晰地追踪重试次数。打算在 Program.cs 里实现。
-
         public SigninTask(string name, string account, string password, List<double> position, string address, string photo, string reason, int beginHour, int beginMin, int endHour, int endMin, Device device = new())
         {
             _name = name;
@@ -163,7 +159,7 @@ namespace YBNAS
 
         public string GetLogPrefix()
         {
-            return "任务 " + _taskGuid + (!string.IsNullOrEmpty(_name.Trim()) ? "（" + _name + "）" : "");
+            return "任务 " + _taskGuid + (!string.IsNullOrEmpty(_name.Trim()) ? "（" + _name + "）" : string.Empty);
         }
 
         private static int GetRandom(int minValue, int maxValue)
@@ -189,7 +185,6 @@ namespace YBNAS
             }
             try
             {
-                //_runCount++;
                 _status = TaskStatus.Running;
                 _statusText = "正在运行";
                 _logger.Debug($"{GetLogPrefix()}：开始运行。");
@@ -203,7 +198,6 @@ namespace YBNAS
                 {
                     _status = TaskStatus.Aborted;
                     _statusText = "登录失败";
-                    //_logger.Error($"任务 {_taskGuid}：运行出错。");
                     OnError?.Invoke(this, Error.LoginFailed);
                     return;
                 }
@@ -212,7 +206,6 @@ namespace YBNAS
                 {
                     _status = TaskStatus.Aborted;
                     _statusText = "获取认证参数失败";
-                    //_logger.Error($"任务 {_taskGuid}：运行出错。");
                     OnError?.Invoke(this, Error.VrInvalid);
                     return;
                 }
@@ -222,11 +215,10 @@ namespace YBNAS
                 {
                     _status = TaskStatus.Aborted;
                     _statusText = "校本化认证失败";
-                    //_logger.Error($"任务 {_taskGuid}：运行出错。");
                     OnError?.Invoke(this, Error.UserInvalid);
                     return;
                 }
-                _name = string.IsNullOrEmpty(_name.Trim()) ? (string.IsNullOrEmpty(_user.PersonName) ? "" : _user.PersonName) : _name;
+                _name = string.IsNullOrEmpty(_name.Trim()) ? (string.IsNullOrEmpty(_user.PersonName) ? string.Empty : _user.PersonName) : _name;
                 _logger.Info($"{GetLogPrefix()}：认证成功。");
                 if (_user.UniversityName != "黑龙江科技大学")
                     if (string.IsNullOrEmpty(_user.UniversityName))
@@ -237,7 +229,7 @@ namespace YBNAS
                 {
                     _logger.Info($"{GetLogPrefix()}：未提供合适的设备信息，将从接口获取。");
                     _device = await GetDevice(csrfToken, userAgent); // 未提供合适的设备信息，从接口获取。
-                    if (_device.PhoneModel != string.Empty && _device.Code != string.Empty)
+                    if (!string.IsNullOrEmpty(_device.PhoneModel) && !string.IsNullOrEmpty(_device.Code))
                         _logger.Info($"{GetLogPrefix()}：绑定的设备是 {_device.PhoneModel}（{_device.Code}）。");
                     else
                         _logger.Info($"{GetLogPrefix()}：设备信息缺失。Do you guys not have phones? 可能会签到失败，不过我会试试。");
@@ -250,7 +242,6 @@ namespace YBNAS
                 {
                     _status = TaskStatus.Aborted;
                     _statusText = "获取签到信息失败";
-                    //_logger.Error($"任务 {_taskGuid}：运行出错。");
                     OnError?.Invoke(this, Error.SigninInfoInvalid);
                     return;
                 }
@@ -322,7 +313,6 @@ namespace YBNAS
                 {
                     _status = TaskStatus.Aborted;
                     _statusText = "签到失败";
-                    //_logger.Error($"任务 {_taskGuid}：运行出错。");
                     OnError?.Invoke(this, Error.SigninFailed);
                     return;
                 }
@@ -338,7 +328,6 @@ namespace YBNAS
                 _statusText = "运行出错";
                 _logger.Error(ex, $"{GetLogPrefix()}：运行出错。"); // NLog 推荐这样传递异常信息。
                 OnError?.Invoke(this, Error.Unknown);
-                //throw;
             }
         }
 
@@ -397,13 +386,14 @@ namespace YBNAS
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetVr.Url}……");
             var resGetVr = await reqGetVr.WithAutoRedirect(false).GetAsync(); // 不要重定向，以便从响应头读取 verify_request。
             _logger.Debug($"{GetLogPrefix()}：收到响应。");
-            string vr = "";
+            string vr = string.Empty;
             foreach (var (name, value) in resGetVr.Headers)
             {
                 if (name == "Location") // 在响应头的 Location 里找 verify_request。
                 {
-                    // 不知道为啥，调用 Flurl 解析 url 不好使。
+                    // 不知道为啥，调用 Flurl 解析 url 不好使，FirstOrDefault 返回 null。
                     //var location = new Url(value);
+                    //Console.WriteLine(location);
                     //vr = (string)location.QueryParams.FirstOrDefault("verify_request");
                     string location = value;
                     string vrBegPatt = "verify_request=";
@@ -511,7 +501,7 @@ namespace YBNAS
         {
             _logger.Info($"{GetLogPrefix()}：晚点签到，启动！");
             // 附加照片。
-            string attachmentFilename = "";
+            string attachmentFilename = string.Empty;
             if (!string.IsNullOrEmpty(signinPhotoInfo.Name) && !string.IsNullOrEmpty(signinPhotoInfo.Type) && signinPhotoInfo.Size != 0)
             {
                 var reqGetUploadUri = "https://api.uyiban.com/"

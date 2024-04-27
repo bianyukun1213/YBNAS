@@ -105,7 +105,7 @@ try
         logger.Debug($"解析签到配置 {tempSc}……"); // 在日志中抹除密码。
         string getSigninConfigSkippedStr(string reason)
         {
-            return $"第 {Config.SigninConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name.Trim()) ? "" : "（" + conf.Name + "）")}{reason}，将跳过解析。";
+            return $"第 {Config.SigninConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name.Trim()) ? string.Empty : "（" + conf.Name + "）")}{reason}，将跳过解析。";
         }
         if (!conf.Enable)
         {
@@ -168,7 +168,7 @@ try
             conf.Password,
             conf.Position,
             conf.Address,
-            conf.Photo ?? "",
+            conf.Photo ?? string.Empty,
             conf.Reason,
             conf.TimeSpan[0],
             conf.TimeSpan[1],
@@ -198,7 +198,6 @@ catch (Exception ex)
     logger.Fatal(ex, "解析配置文件时出错。");
     PrintExitMsg();
     return -1;
-    //throw;
 }
 
 foreach (var item in tasks)

@@ -21,6 +21,7 @@
         45.820275900282255
       ],
       "Address": "黑龙江省哈尔滨市松北区浦源路2298号靠近黑龙江科技大学",
+      "Outside": false,
       "Photo": "",
       "Reason": "",
       "TimeSpan": [
@@ -42,6 +43,7 @@
       ],
       "Address": "黑龙江省哈尔滨市南岗区花园街道西大直街国际饭店",
       "Photo": "D:\\signin_photo\\photo.jpg",
+      "Outside": true,
       "Reason": "跟国际友人聚餐。",
       "TimeSpan": [
         21,

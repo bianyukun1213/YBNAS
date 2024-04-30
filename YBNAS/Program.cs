@@ -168,8 +168,9 @@ try
             conf.Password,
             conf.Position,
             conf.Address,
-            conf.Photo ?? string.Empty,
+            conf.Photo ?? string.Empty, // 此处 conf.Photo 可能为空。
             conf.Reason,
+            conf.Outside,
             conf.TimeSpan[0],
             conf.TimeSpan[1],
             conf.TimeSpan[2],

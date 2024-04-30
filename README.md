@@ -2,19 +2,19 @@
 
 &emsp;&emsp;本项目**仅供学习使用**，使用时**自负风险**。
 
-&emsp;&emsp;针对黑龙江科技大学开发，其他学校请自行测试。
+&emsp;&emsp;针对**黑龙江科技大学**开发，其他学校请自行测试。
 
 &emsp;&emsp;感谢 [yiban](https://github.com/Sricor/yiban) 项目提供参考。
 
 ## 安装
 
-&emsp;&emsp;本程序基于 .NET 8.0 框架，采用独立部署模式，因此无需安装框架即可运行。
+&emsp;&emsp;本程序基于 .NET 8 框架，采用独立部署模式，因此无需安装框架即可运行。
 
-&emsp;&emsp;对于 Windows，只提供 32 位版本；解压 `YBNAS.<版本号>.win-x86.zip`，`YBNAS.exe` 即是程序入口。
+&emsp;&emsp;对于 Windows，只提供 x86 版本；解压 `YBNAS.<版本号>.win-x86.zip`，`YBNAS.exe` 即是程序入口。
 
-&emsp;&emsp;对于 GNU/Linux，只提供 64 位版本；解压 `YBNAS.<版本号>.linux-x64.zip`，`YBNAS` 即是程序入口。使用前需赋予执行权限。
+&emsp;&emsp;对于 GNU/Linux，只提供 x64 版本；解压 `YBNAS.<版本号>.linux-x64.zip`，`YBNAS` 即是程序入口。使用前需赋予执行权限。
 
-&emsp;&emsp;对于其他平台，请自行编译。
+&emsp;&emsp;对于其他平台与架构，请自行编译。
 
 &emsp;&emsp;在运行程序之前需**参照下文编写配置文件**。
 
@@ -48,6 +48,7 @@
       "Address": "黑龙江省哈尔滨市松北区浦源路2298号靠近黑龙江科技大学",
       "Photo": "",
       "Reason": "",
+      "Outside": false,
       "TimeSpan": [
         21,
         50,
@@ -68,6 +69,7 @@
       "Address": "黑龙江省哈尔滨市南岗区花园街道西大直街国际饭店",
       "Photo": "D:\\signin_photo\\photo.jpg",
       "Reason": "跟国际友人聚餐。",
+      "Outside": true,
       "TimeSpan": [
         21,
         50,
@@ -103,13 +105,19 @@
 
 &emsp;&emsp;`Address` 字段配置对应的签到地址。
 
-&emsp;&emsp;`Position` 和 `Address` 所需值可以在[这个网页](https://lbs.amap.com/api/javascript-api/guide/services/geocoder)的“UI组件-拖拽选址”部分获取。
+&emsp;&emsp;`Position` 和 `Address` 字段所需值可以在[这个网页](https://lbs.amap.com/api/javascript-api/guide/services/geocoder)的“UI组件-拖拽选址”部分获取。
 
-&emsp;&emsp;`Photo` 字段配置附件照片的路径。照片要求为 JPEG 格式，且具有扩展名 `.jpg` 或 `.jpeg`。在 Windows 系统下，路径中的反斜杠需要输两个。
+&emsp;&emsp;`Outside` 字段配置给定位置是否在常规的签到范围外，影响某些信息提交的逻辑，见下文。
 
-&emsp;&emsp;`Reason` 字段配置签到原因。
+&emsp;&emsp;`Photo` 字段配置附件照片的路径。照片要求为 JPEG 格式，且具有扩展名 `.jpg` 或 `.jpeg`。大小我没有主动设限，但服务端可能有限制，建议不要太大。在 Windows 系统下，路径中的反斜杠需要输两个。
 
-&emsp;&emsp;对于**黑龙江科技大学**，**签到**坐标和地址**在校内时**，**不应填写 `Photo` 和 `Reason` 字段**，而应保留为空字符串；签到坐标和地址在校外时，应填写 `Photo` 和 `Reason` 字段——尽管服务端可能并不要求提供照片和原因，但在 App 内这两项为必填信息。
+&emsp;&emsp;程序运行时会根据 `Outside` 字段、`Photo` 字段和接口返回的信息自动判断是否提交照片。只有在正确填写了 `Photo` 字段后，学校要求必须提交照片，或学校要求范围外签到提交照片并且已将 `Outside` 设为 `true` 时才会真正提交。
+
+&emsp;&emsp;`Reason` 字段配置范围外签到原因。
+
+&emsp;&emsp;程序运行时会根据 `Outside` 字段自动判断是否提交范围外签到原因。只有将 `Outiside` 设为 `true` 时才会提交范围外签到原因。
+
+&emsp;&emsp;对于**黑龙江科技大学**，签到坐标和地址在校外时，应填写 `Photo` 和 `Reason` 字段——尽管服务端可能并不验证照片和原因，但在 App 内这两项为必填信息。
 
 &emsp;&emsp;`TimeSpan` 字段配置签到时间段，按顺序分别填开始小时、开始分钟、结束小时、结束分钟。程序运行时读取系统时间，若其不在此字段设定的时间段内，则跳过此用户的签到任务创建。另外，签到时也会动态获取当前时间，与校本化接口返回的签到时间段比对，若不在允许的时间段内，同样也会跳过签到。
 

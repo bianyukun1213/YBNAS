@@ -11,6 +11,7 @@ namespace YBNAS
         public Device Device { get; set; } // C# struct 是值类型，不会是 null。
         public List<double> Position { get; set; }
         public string Address { get; set; }
+        public bool Outside { get; set; }
         public string Photo { get; set; }
         public string Reason { get; set; }
         public List<int> TimeSpan { get; set; }

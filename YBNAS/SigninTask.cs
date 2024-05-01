@@ -98,7 +98,7 @@ namespace YBNAS
             Aborted
         }
 
-        private readonly string _taskGuid = Guid.NewGuid().ToString()[..4];
+        private readonly string _taskGuid = string.Empty;
         private TaskStatus _status;
         private string _statusText;
 
@@ -114,6 +114,9 @@ namespace YBNAS
         private readonly int _beginMin = 0;
         private readonly int _endHour = 0;
         private readonly int _endMin = 0;
+
+        private readonly string _csrfToken = string.Empty;
+        private string _userAgent = string.Empty;
 
         private User _user;
         private Device _device;
@@ -166,6 +169,10 @@ namespace YBNAS
             Device device = new()
             )
         {
+            _taskGuid = Guid.NewGuid().ToString()[..4];
+            _status = TaskStatus.Waiting;
+            _statusText = "等待";
+
             _name = name;
             _account = account;
             _password = password;
@@ -179,10 +186,13 @@ namespace YBNAS
             _beginMin = beginMin;
             _endHour = endHour;
             _endMin = endMin;
+
+            _csrfToken = Guid.NewGuid().ToString("N");
+            _userAgent = "yiban_android"; // 校本化应用需要的 UA，先使用 Android 端。
+
             _user = new();
             _device = device;
-            _status = TaskStatus.Waiting;
-            _statusText = "等待";
+
             _logger.Debug($"{GetLogPrefix()}：构造完成。");
         }
 
@@ -220,7 +230,6 @@ namespace YBNAS
                 OnRun?.Invoke(this, Error.Ok);
                 _jar = new(); // 存 cookie。任务失败重试，使用新 cookie。
                 _logger.Debug($"{GetLogPrefix()}：新建 CookieJar。");
-                string csrfToken = Guid.NewGuid().ToString("N");
                 string rsaPubKey = await GetRsaPubKey();
                 bool loginSucceeded = await Login(rsaPubKey);
                 if (!loginSucceeded)
@@ -238,8 +247,7 @@ namespace YBNAS
                     OnError?.Invoke(this, Error.VrInvalid);
                     return;
                 }
-                string userAgent = "yiban_android"; // 校本化应用需要的 UA，先使用 Android 端。
-                _user = await Auth(vr, csrfToken, userAgent);
+                _user = await Auth(vr);
                 if (string.IsNullOrEmpty(_user.PersonId)) // 校本化认证失败。
                 {
                     _status = TaskStatus.Aborted;
@@ -257,16 +265,16 @@ namespace YBNAS
                 if (string.IsNullOrEmpty(_device.Code) || string.IsNullOrEmpty(_device.PhoneModel))
                 {
                     _logger.Info($"{GetLogPrefix()}：未提供合适的设备信息，将从接口获取。");
-                    _device = await GetDevice(csrfToken, userAgent); // 未提供合适的设备信息，从接口获取。
+                    _device = await GetDevice(); // 未提供合适的设备信息，从接口获取。
                     if (!string.IsNullOrEmpty(_device.PhoneModel) && !string.IsNullOrEmpty(_device.Code))
                         _logger.Info($"{GetLogPrefix()}：绑定的设备是 {_device.PhoneModel}（{_device.Code}）。");
                     else
                         _logger.Info($"{GetLogPrefix()}：设备信息缺失。Do you guys not have phones? 可能会签到失败，不过我会试试。");
                 }
-                if (!string.IsNullOrEmpty(_device.PhoneModel) && _device.PhoneModel.Contains("iPhone"))
-                    userAgent = "yiban_iOS"; // 如果是 iPhone，让之后的请求携带 iOS 客户端的 UA。
+                if (!string.IsNullOrEmpty(_device.PhoneModel) && (_device.PhoneModel.Contains("iPhone") || _device.PhoneModel.Contains("iPad")))
+                    _userAgent = "yiban_iOS"; // 如果是 iPhone 或 iPad，让之后的请求携带 iOS 客户端的 UA。
                 // 签到之前必须先获取签到信息，可能会设定 cookie，否则会判非法签到。
-                SigninInfo info = await GetSigninInfo(csrfToken, userAgent);
+                SigninInfo info = await GetSigninInfo();
                 if (!info.IsServerRes)
                 {
                     _status = TaskStatus.Aborted;
@@ -338,7 +346,7 @@ namespace YBNAS
                         Type = "image/jpeg",
                         Size = photoFileInfo.Length
                     };
-                    uploadedPhotoInfo = await UploadPhoto(signinPhotoInfo, csrfToken, userAgent);
+                    uploadedPhotoInfo = await UploadPhoto(signinPhotoInfo);
                     if (string.IsNullOrEmpty(uploadedPhotoInfo.AttachmentFileName) && string.IsNullOrEmpty(uploadedPhotoInfo.DownloadUri))
                     {
                         _status = TaskStatus.Aborted;
@@ -347,7 +355,7 @@ namespace YBNAS
                         return;
                     }
                 }
-                bool signinStatus = await Signin(_device, uploadedPhotoInfo, csrfToken, userAgent);
+                bool signinStatus = await Signin(_device, uploadedPhotoInfo);
                 if (!signinStatus) // 签到失败。
                 {
                     _status = TaskStatus.Aborted;
@@ -450,13 +458,13 @@ namespace YBNAS
             return vr;
         }
 
-        private async Task<User> Auth(string vr, string csrfToken, string userAgent)
+        private async Task<User> Auth(string vr)
         {
             _logger.Info($"{GetLogPrefix()}：进行校本化认证……");
             var reqAuth = "https://api.uyiban.com/"
                 .AppendPathSegment("base/c/auth/yiban")
-                .SetQueryParams(new { verifyRequest = vr, CSRF = csrfToken })
-                .WithHeaders(new { Origin = "https://c.uyiban.com" /* 认证 origin 是 c…… */, User_Agent = userAgent /* 认证 UA 包含 yiban_android。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .SetQueryParams(new { verifyRequest = vr, CSRF = _csrfToken })
+                .WithHeaders(new { Origin = "https://c.uyiban.com" /* 认证 origin 是 c…… */, User_Agent = _userAgent /* 认证 UA 包含 yiban_android。 */, AppVersion = "5.0", Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqAuth.Url}……");
             var authContent = await reqAuth.GetStringAsync();
@@ -479,13 +487,13 @@ namespace YBNAS
             return user;
         }
 
-        private async Task<Device> GetDevice(string csrfToken, string userAgent)
+        private async Task<Device> GetDevice()
         {
             _logger.Info($"{GetLogPrefix()}：获取授权设备……");
             var reqGetDevice = "https://api.uyiban.com/"
                 .AppendPathSegment("device/student/index/getState")
-                .SetQueryParams(new { CSRF = csrfToken })
-                .WithHeaders(new { Origin = "https://app.uyiban.com" /* 获取设备 origin 是 app…… */, User_Agent = userAgent /* 获取设备 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .SetQueryParams(new { CSRF = _csrfToken })
+                .WithHeaders(new { Origin = "https://app.uyiban.com" /* 获取设备 origin 是 app…… */, User_Agent = _userAgent /* 获取设备 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetDevice.Url}……");
             var deviceContent = await reqGetDevice.GetStringAsync();
@@ -506,13 +514,13 @@ namespace YBNAS
             return device;
         }
 
-        private async Task<SigninInfo> GetSigninInfo(string csrfToken, string userAgent)
+        private async Task<SigninInfo> GetSigninInfo()
         {
             _logger.Info($"{GetLogPrefix()}：获取签到信息……");
             var reqSigninInfo = "https://api.uyiban.com/"
                 .AppendPathSegment("nightAttendance/student/index/signPosition")
-                .SetQueryParams(new { CSRF = csrfToken })
-                .WithHeaders(new { Origin = "https://app.uyiban.com" /* 获取签到信息 origin 是 app…… */, User_Agent = userAgent /* 获取签到信息 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .SetQueryParams(new { CSRF = _csrfToken })
+                .WithHeaders(new { Origin = "https://app.uyiban.com" /* 获取签到信息 origin 是 app…… */, User_Agent = _userAgent /* 获取签到信息 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSigninInfo.Url}……");
             var infoContent = await reqSigninInfo.GetStringAsync();
@@ -537,7 +545,7 @@ namespace YBNAS
             return signinInfo;
         }
 
-        private async Task<UploadedPhotoInfo> UploadPhoto(SigninPhotoInfo signinPhotoInfo, string csrfToken, string userAgent)
+        private async Task<UploadedPhotoInfo> UploadPhoto(SigninPhotoInfo signinPhotoInfo)
         {
             _logger.Info($"{GetLogPrefix()}：上传照片……");
             if (!string.IsNullOrEmpty(signinPhotoInfo.Name) && !string.IsNullOrEmpty(signinPhotoInfo.Type) && signinPhotoInfo.Size != 0)
@@ -547,8 +555,8 @@ namespace YBNAS
                     .SetQueryParams(new { name = signinPhotoInfo.Name })
                     .SetQueryParams(new { type = signinPhotoInfo.Type })
                     .SetQueryParams(new { size = signinPhotoInfo.Size })
-                    .SetQueryParams(new { CSRF = csrfToken })
-                    .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                    .SetQueryParams(new { CSRF = _csrfToken })
+                    .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = _userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                     .WithCookies(_jar);
                 _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetUploadUri.Url}……");
                 var uploadUriContent = await reqGetUploadUri.GetStringAsync();
@@ -563,7 +571,7 @@ namespace YBNAS
                 string attachmentFilename = uploadUriRes.Data["AttachmentFileName"].Deserialize<string>()!;
                 string signedUrl = uploadUriRes.Data["signedUrl"].Deserialize<string>()!;
                 var reqUploadPhoto = signedUrl
-                    .WithHeaders(new { Content_Type = "image/jpeg", Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                    .WithHeaders(new { Content_Type = "image/jpeg", Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = _userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                     .WithCookies(_jar);
                 _logger.Debug($"{GetLogPrefix()}：发送请求：{reqUploadPhoto.Url}……");
                 var uploadPhotoContent = await reqUploadPhoto.PutAsync(new FileContent(_photo));
@@ -576,8 +584,8 @@ namespace YBNAS
                 var reqGetDownloadUri = "https://api.uyiban.com/"
                     .AppendPathSegment("nightAttendance/student/index/downloadUri")
                     .SetQueryParams(new { AttachmentFileName = attachmentFilename })
-                    .SetQueryParams(new { CSRF = csrfToken })
-                    .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                    .SetQueryParams(new { CSRF = _csrfToken })
+                    .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = _userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                     .WithCookies(_jar);
                 _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetDownloadUri.Url}……");
                 var downloadUriContent = await reqGetDownloadUri.GetStringAsync();
@@ -596,14 +604,14 @@ namespace YBNAS
             return new();
         }
 
-        private async Task<bool> Signin(Device device, UploadedPhotoInfo uploadedPhotoInfo, string userAgent, string csrfToken)
+        private async Task<bool> Signin(Device device, UploadedPhotoInfo uploadedPhotoInfo)
         {
             _logger.Info($"{GetLogPrefix()}：晚点签到，启动！");
             // 附加照片。
             var reqSignin = "https://api.uyiban.com/"
                 .AppendPathSegment("nightAttendance/student/index/signIn")
-                .SetQueryParams(new { CSRF = csrfToken })
-                .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .SetQueryParams(new { CSRF = _csrfToken })
+                .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = _userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
             string signinContent;
             if (_outside) // 是否在校外。校内外带照片签到，AttachmentFileName 的位置不同。

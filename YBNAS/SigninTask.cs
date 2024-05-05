@@ -271,99 +271,109 @@ namespace YBNAS
                     else
                         _logger.Info($"{GetLogPrefix()}：设备信息缺失。Do you guys not have phones? 可能会签到失败，不过我会试试。");
                 }
-                if (!string.IsNullOrEmpty(_device.PhoneModel) && (_device.PhoneModel.Contains("iPhone") || _device.PhoneModel.Contains("iPad")))
-                    _userAgent = "yiban_iOS"; // 如果是 iPhone 或 iPad，让之后的请求携带 iOS 客户端的 UA。
-                // 签到之前必须先获取签到信息，可能会设定 cookie，否则会判非法签到。
-                SigninInfo info = await GetSigninInfo();
-                if (!info.IsServerRes)
+                //if (!string.IsNullOrEmpty(_device.PhoneModel) && (_device.PhoneModel.Contains("iPhone") || _device.PhoneModel.Contains("iPad")))
+                //    _userAgent = "yiban_iOS"; // 如果是 iPhone 或 iPad，让之后的请求携带 iOS 客户端的 UA。
+                //// 签到之前必须先获取签到信息，可能会设定 cookie，否则会判非法签到。
+                //SigninInfo info = await GetSigninInfo();
+                //if (!info.IsServerRes)
+                //{
+                //    _status = TaskStatus.Aborted;
+                //    _statusText = "获取签到信息失败";
+                //    OnError?.Invoke(this, Error.SigninInfoInvalid);
+                //    return;
+                //}
+                //if (info.State == 4) // 表示签到状态已被更改。
+                //{
+                //    _logger.Info($"{GetLogPrefix()}：签到状态已被更改，无法签到，将跳过。");
+                //    _status = TaskStatus.Skipped;
+                //    _statusText = "无法签到，因为签到状态已被更改";
+                //    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
+                //    OnSkip?.Invoke(this, Error.Ok);
+                //    return;
+                //}
+                //if (info.State == 3) // 表示已签到。
+                //{
+                //    _logger.Info($"{GetLogPrefix()}：已签到，将跳过。");
+                //    _status = TaskStatus.Skipped;
+                //    _statusText = "已签到";
+                //    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
+                //    OnSkip?.Invoke(this, Error.Ok);
+                //    return;
+                //}
+                //if (info.State == 2) // 无需签到，可能已请假。
+                //{
+                //    _logger.Info($"{GetLogPrefix()}：无需签到，将跳过。");
+                //    _status = TaskStatus.Skipped;
+                //    _statusText = "无需签到";
+                //    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
+                //    OnSkip?.Invoke(this, Error.Ok);
+                //    return;
+                //}
+                //if (info.State == 1)
+                //{
+                //    _logger.Info($"{GetLogPrefix()}：不在学校要求的签到时间段内，无法签到，将跳过。"); // 最好让用户一眼知道是哪个人在哪个学校因为未到时间签到失败。
+                //    _status = TaskStatus.Skipped;
+                //    _statusText = "无法签到，因为不在签到时间段内";
+                //    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
+                //    OnSkip?.Invoke(this, Error.Ok);
+                //    return;
+                //}
+                //if (info.State != 0) // 因为其他原因不适宜签到。
+                //{
+                //    _logger.Info($"{GetLogPrefix()}：无需签到或无法签到，（原因未知，State 值为 {info.State}。）将跳过。");
+                //    _status = TaskStatus.Skipped;
+                //    _statusText = $"无需签到或无法签到，原因未知，State 值为 {info.State}";
+                //    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
+                //    OnSkip?.Invoke(this, Error.Ok);
+                //    return;
+                //}
+                //// 延迟。
+                //if (Config.RandomDelay![0] != 0)
+                //{
+                //    int sec = Config.RandomDelay![0];
+                //    if (Config.RandomDelay![0] != Config.RandomDelay![1])
+                //        sec = GetRandom(Config.RandomDelay![0], Config.RandomDelay![1] + 1);
+                //    _logger.Info($"{GetLogPrefix()}：延迟 {sec} 秒签到……");
+                //    await Task.Delay(sec * 1000);
+                //}
+                //UploadedPhotoInfo uploadedPhotoInfo = new();
+                //if (!string.IsNullOrEmpty(_photo) && (info.IsNeedPhoto == 1 || (info.IsNeedPhoto == 2 && _outside))) // 0 不需，1 总需，2 校外需。
+                //{
+                //    FileInfo photoFileInfo = new(_photo);
+                //    SigninPhotoInfo signinPhotoInfo = new()
+                //    {
+                //        Name = $"yiban_camera_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.jpg",
+                //        Type = "image/jpeg",
+                //        Size = photoFileInfo.Length
+                //    };
+                //    uploadedPhotoInfo = await UploadPhoto(signinPhotoInfo);
+                //    if (string.IsNullOrEmpty(uploadedPhotoInfo.AttachmentFileName) && string.IsNullOrEmpty(uploadedPhotoInfo.DownloadUri))
+                //    {
+                //        _status = TaskStatus.Aborted;
+                //        _statusText = "照片上传失败";
+                //        OnError?.Invoke(this, Error.PhotoUploadFailed);
+                //        return;
+                //    }
+                //}
+                //bool signinStatus = await Signin(_device, uploadedPhotoInfo);
+                //if (!signinStatus) // 签到失败。
+                //{
+                //    _status = TaskStatus.Aborted;
+                //    _statusText = "签到失败";
+                //    OnError?.Invoke(this, Error.SigninFailed);
+                //    return;
+                //}
+                //_logger.Info($"{GetLogPrefix()}：签到成功！Have a safe day.");
+
+                string id = await GetLeaveRecords();
+                if (!string.IsNullOrEmpty(id))
                 {
-                    _status = TaskStatus.Aborted;
-                    _statusText = "获取签到信息失败";
-                    OnError?.Invoke(this, Error.SigninInfoInvalid);
-                    return;
+
+                    bool signinStatus = await CancelLeave(id);
+                    _logger.Info($"{GetLogPrefix()}：cancel {signinStatus}");
                 }
-                if (info.State == 4) // 表示签到状态已被更改。
-                {
-                    _logger.Info($"{GetLogPrefix()}：签到状态已被更改，无法签到，将跳过。");
-                    _status = TaskStatus.Skipped;
-                    _statusText = "无法签到，因为签到状态已被更改";
-                    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
-                    OnSkip?.Invoke(this, Error.Ok);
-                    return;
-                }
-                if (info.State == 3) // 表示已签到。
-                {
-                    _logger.Info($"{GetLogPrefix()}：已签到，将跳过。");
-                    _status = TaskStatus.Skipped;
-                    _statusText = "已签到";
-                    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
-                    OnSkip?.Invoke(this, Error.Ok);
-                    return;
-                }
-                if (info.State == 2) // 无需签到，可能已请假。
-                {
-                    _logger.Info($"{GetLogPrefix()}：无需签到，将跳过。");
-                    _status = TaskStatus.Skipped;
-                    _statusText = "无需签到";
-                    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
-                    OnSkip?.Invoke(this, Error.Ok);
-                    return;
-                }
-                if (info.State == 1)
-                {
-                    _logger.Info($"{GetLogPrefix()}：不在学校要求的签到时间段内，无法签到，将跳过。"); // 最好让用户一眼知道是哪个人在哪个学校因为未到时间签到失败。
-                    _status = TaskStatus.Skipped;
-                    _statusText = "无法签到，因为不在签到时间段内";
-                    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
-                    OnSkip?.Invoke(this, Error.Ok);
-                    return;
-                }
-                if (info.State != 0) // 因为其他原因不适宜签到。
-                {
-                    _logger.Info($"{GetLogPrefix()}：无需签到或无法签到，（原因未知，State 值为 {info.State}。）将跳过。");
-                    _status = TaskStatus.Skipped;
-                    _statusText = $"无需签到或无法签到，原因未知，State 值为 {info.State}";
-                    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
-                    OnSkip?.Invoke(this, Error.Ok);
-                    return;
-                }
-                // 延迟。
-                if (Config.RandomDelay![0] != 0)
-                {
-                    int sec = Config.RandomDelay![0];
-                    if (Config.RandomDelay![0] != Config.RandomDelay![1])
-                        sec = GetRandom(Config.RandomDelay![0], Config.RandomDelay![1] + 1);
-                    _logger.Info($"{GetLogPrefix()}：延迟 {sec} 秒签到……");
-                    await Task.Delay(sec * 1000);
-                }
-                UploadedPhotoInfo uploadedPhotoInfo = new();
-                if (!string.IsNullOrEmpty(_photo) && (info.IsNeedPhoto == 1 || (info.IsNeedPhoto == 2 && _outside))) // 0 不需，1 总需，2 校外需。
-                {
-                    FileInfo photoFileInfo = new(_photo);
-                    SigninPhotoInfo signinPhotoInfo = new()
-                    {
-                        Name = $"yiban_camera_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.jpg",
-                        Type = "image/jpeg",
-                        Size = photoFileInfo.Length
-                    };
-                    uploadedPhotoInfo = await UploadPhoto(signinPhotoInfo);
-                    if (string.IsNullOrEmpty(uploadedPhotoInfo.AttachmentFileName) && string.IsNullOrEmpty(uploadedPhotoInfo.DownloadUri))
-                    {
-                        _status = TaskStatus.Aborted;
-                        _statusText = "照片上传失败";
-                        OnError?.Invoke(this, Error.PhotoUploadFailed);
-                        return;
-                    }
-                }
-                bool signinStatus = await Signin(_device, uploadedPhotoInfo);
-                if (!signinStatus) // 签到失败。
-                {
-                    _status = TaskStatus.Aborted;
-                    _statusText = "签到失败";
-                    OnError?.Invoke(this, Error.SigninFailed);
-                    return;
-                }
-                _logger.Info($"{GetLogPrefix()}：签到成功！Have a safe day.");
+
+
                 _status = TaskStatus.Complete;
                 _statusText = "完成";
                 _logger.Debug($"{GetLogPrefix()}：运行完成。");
@@ -631,6 +641,62 @@ namespace YBNAS
             if (siginRes.Code != 0)
             {
                 _logger.Error($"{GetLogPrefix()}：签到失败，服务端返回消息：{siginRes.Msg}。");
+                return false;
+            }
+            return true;
+        }
+
+        private async Task<string> GetLeaveRecords()
+        {
+            _logger.Info($"{GetLogPrefix()}：ceshi，启动！");
+            // 附加照片。
+            var reqGetLeaveRecords = "https://api.uyiban.com/"
+                .AppendPathSegment("leave/student/record/lists")
+                .SetQueryParams(new { CSRF = _csrfToken })
+                .SetQueryParams(new { page = 1 })
+                .SetQueryParams(new { pageSize = 20 })
+                .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = _userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .WithCookies(_jar);
+            var leaveRecords = await reqGetLeaveRecords.GetStringAsync();
+            _logger.Debug($"{GetLogPrefix()}：收到响应：{leaveRecords}");
+            YibanNightAttendanceSigninApiRes leaveRes = ParseYibanNightAttendanceSigninApiRes(JsonNode.Parse(leaveRecords!)!);
+            if (leaveRes.Code != 0)
+            {
+                _logger.Error($"{GetLogPrefix()}：：{leaveRes.Msg}。");
+                return string.Empty;
+            }
+            JsonNode leaveResData = leaveRes.Data;
+            List<JsonNode> list = leaveResData["list"].Deserialize<List<JsonNode>>()!;
+            string id = string.Empty;
+            foreach (var item in list)
+            {
+                if (item["OffType"].Deserialize<int>() == 0)
+                {
+                    id = item["Id"].Deserialize<string>()!;
+                }
+            }
+            return id;
+        }
+
+        private async Task<bool> CancelLeave(string id)
+        {
+            _logger.Info($"{GetLogPrefix()}：cancel，启动！");
+            // 附加照片。
+            var reqCancel = "https://api.uyiban.com/"
+                .AppendPathSegment("leave/student/record/cancel")
+                .SetQueryParams(new { CSRF = _csrfToken })
+                .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = _userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, AppVersion = "5.0", Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .WithCookies(_jar);
+
+            var cancelBody = new { Id = id, FileName = "leave/cancel/0/0.jpg" };
+            _logger.Debug($"{GetLogPrefix()}：发送请求：{reqCancel.Url}，cancelBody：{JsonSerializer.Serialize(cancelBody, ServiceOptions.jsonSerializerOptions)}……");
+            string cancelContent = await reqCancel.PostUrlEncodedAsync(cancelBody).ReceiveString();
+
+            _logger.Debug($"{GetLogPrefix()}：收到响应：{cancelContent}。");
+            YibanNightAttendanceSigninApiRes cancelRes = ParseYibanNightAttendanceSigninApiRes(JsonNode.Parse(cancelContent!)!);
+            if (cancelRes.Code != 0)
+            {
+                _logger.Error($"{GetLogPrefix()}：cancel失败，服务端返回消息：{cancelRes.Msg}。");
                 return false;
             }
             return true;

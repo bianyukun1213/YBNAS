@@ -4,6 +4,7 @@ using Flurl.Http;
 using Flurl.Http.Content;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace YBNAS
 {
@@ -11,12 +12,23 @@ namespace YBNAS
     {
         Unknown = -1,
         Ok,
+        LoginParamsInvalid,
         LoginFailed,
-        VrInvalid,
+        VerifyrequestInvalid,
         UserInvalid,
         SigninInfoInvalid,
         PhotoUploadFailed,
         SigninFailed
+    }
+
+    internal struct LoginParams
+    {
+        public string RsaPubKey { get; set; }
+        public string Pageuse { get; set; }
+        public override readonly string ToString()
+        {
+            return JsonSerializer.Serialize(this, ServiceOptions.jsonSerializerOptions);
+        }
     }
 
     internal struct User
@@ -230,8 +242,15 @@ namespace YBNAS
                 OnRun?.Invoke(this, Error.Ok);
                 _jar = new(); // 存 cookie。任务失败重试，使用新 cookie。
                 _logger.Debug($"{GetLogPrefix()}：新建 CookieJar。");
-                string rsaPubKey = await GetRsaPubKey();
-                bool loginSucceeded = await Login(rsaPubKey);
+                LoginParams loginParams = await GetLoginParams();
+                if (string.IsNullOrEmpty(loginParams.RsaPubKey) || string.IsNullOrEmpty(loginParams.Pageuse))
+                {
+                    _status = TaskStatus.Aborted;
+                    _statusText = "获取登录参数失败";
+                    OnError?.Invoke(this, Error.LoginParamsInvalid);
+                    return;
+                }
+                bool loginSucceeded = await Login(loginParams.RsaPubKey, loginParams.Pageuse);
                 if (!loginSucceeded)
                 {
                     _status = TaskStatus.Aborted;
@@ -244,7 +263,7 @@ namespace YBNAS
                 {
                     _status = TaskStatus.Aborted;
                     _statusText = "获取认证参数失败";
-                    OnError?.Invoke(this, Error.VrInvalid);
+                    OnError?.Invoke(this, Error.VerifyrequestInvalid);
                     return;
                 }
                 _user = await Auth(vr);
@@ -388,28 +407,45 @@ namespace YBNAS
             }
         }
 
-        private async Task<string> GetRsaPubKey()
+        private async Task<LoginParams> GetLoginParams()
         {
-            _logger.Info($"{GetLogPrefix()}：获取 RSA 加密公钥……");
-            var reqGetRsaPubKey = "https://oauth.yiban.cn/" // 留出 BaseUrl，Flurl.Http 给相同域的请求复用同一个 HttpClient。
+            _logger.Info($"{GetLogPrefix()}：获取登录参数……");
+            var reqGetLoginParams = "https://oauth.yiban.cn/" // 留出 BaseUrl，Flurl.Http 给相同域的请求复用同一个 HttpClient。
                 .AppendPathSegment("code/html") // 在此附加路径。
-                .SetQueryParams(new { client_id = "95626fa3080300ea" /* 不知道是啥，写死的。 */, redirect_uri = "https://f.yiban.cn/iapp7463" })
+                .SetQueryParams(new { client_id = "95626fa3080300ea" /* 校本化的应用 Id。 */, redirect_uri = "https://f.yiban.cn/iapp7463" })
                 .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "YiBan", AppVersion = "5.0" }) // User_Agent 会自动变成 User-Agent。 
                                                                                                                 //.WithHeaders(new DefaultHeaders()) 把 header 提取成一个默认的结构体，行不通……抓包发现没有这些数据。
                 .WithCookies(out _jar); // 存入 cookie，供以后的请求携带。
-            _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetRsaPubKey.Url}……");
-            string rsaPubKeyContent = await reqGetRsaPubKey.GetStringAsync();
-            _logger.Debug($"{GetLogPrefix()}：收到响应：{rsaPubKeyContent}。");
-            string keyBegPatt = "-----BEGIN PUBLIC KEY-----";
-            string keyEndPatt = "-----END PUBLIC KEY-----";
-            int keyBegPattPos = rsaPubKeyContent.IndexOf(keyBegPatt);
-            int keyEndPattPos = rsaPubKeyContent.IndexOf(keyEndPatt);
-            string rsaPubKey = rsaPubKeyContent.Substring(keyBegPattPos, keyEndPattPos - keyBegPattPos + keyEndPatt.Length);
-            _logger.Debug($"{GetLogPrefix()}：取得 RSA 加密公钥：{rsaPubKey}。");
-            return rsaPubKey;
+            _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetLoginParams.Url}……");
+            string loginParamsContent = await reqGetLoginParams.GetStringAsync();
+            _logger.Debug($"{GetLogPrefix()}：收到响应：{loginParamsContent}。");
+            string rsaPubKey;
+            try
+            {
+                string keyBegPatt = "-----BEGIN PUBLIC KEY-----";
+                string keyEndPatt = "-----END PUBLIC KEY-----";
+                int keyBegPattPos = loginParamsContent.IndexOf(keyBegPatt);
+                int keyEndPattPos = loginParamsContent.IndexOf(keyEndPatt);
+                rsaPubKey = loginParamsContent.Substring(keyBegPattPos, keyEndPattPos - keyBegPattPos + keyEndPatt.Length);
+            }
+            catch (Exception)
+            {
+                rsaPubKey = string.Empty;
+            }
+            if (string.IsNullOrEmpty(rsaPubKey))
+                _logger.Error($"{GetLogPrefix()}：获取登录参数失败，RSA 加密公钥为空。");
+            else
+                _logger.Debug($"{GetLogPrefix()}：取得 RSA 加密公钥：{rsaPubKey}。");
+            string pageuse = new Regex(@"var page_use = '(.+)';").Match(loginParamsContent)?.Groups[1]?.Value ?? string.Empty;
+            if (string.IsNullOrEmpty(pageuse))
+                _logger.Error($"{GetLogPrefix()}：获取登录参数失败，AJAX 签名（page_use）为空。");
+            else
+                _logger.Debug($"{GetLogPrefix()}：取得 AJAX 签名（page_use）：{pageuse}。");
+            return new LoginParams { RsaPubKey = rsaPubKey, Pageuse = pageuse };
         }
 
-        private async Task<bool> Login(string rsaPubKey)
+
+        private async Task<bool> Login(string rsaPubKey, string ajaxSign)
         {
             _logger.Info($"{GetLogPrefix()}：加密密码……");
             var pem = RSA_PEM.FromPEM(rsaPubKey);
@@ -418,6 +454,7 @@ namespace YBNAS
             _logger.Info($"{GetLogPrefix()}：登录……");
             var reqLogin = "https://oauth.yiban.cn/"
                 .AppendPathSegment("code/usersure")
+                .SetQueryParams(new { ajax_sign = ajaxSign })
                 .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = "YiBan", AppVersion = "5.0" })
                 .WithCookies(_jar);
             var loginBody = new { oauth_uname = _account, oauth_upwd = pwdEncoded, client_id = "95626fa3080300ea", redirect_uri = "https://f.yiban.cn/iapp7463" };

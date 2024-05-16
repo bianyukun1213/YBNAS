@@ -5,12 +5,33 @@ using System.Net;
 using System.Text.Json.Nodes;
 using YBNAS;
 using System.Text.Json;
+using CommandLine;
+using Error = YBNAS.Error;
 
 var asm = System.Reflection.Assembly.GetExecutingAssembly();
 string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
 
 Console.Title = appVer;
 Logger logger = LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
+string configPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "config.json");
+
+var parser = new Parser(config =>
+{
+    config.AutoVersion = false;
+    config.AutoHelp = false;
+});
+parser.ParseArguments<CommandLineOptions>(args).WithParsed(o =>
+{
+    if (!string.IsNullOrEmpty(o.ConfigPath))
+    {
+        configPath = o.ConfigPath;
+        logger.Debug($"用户指定配置文件路径为 {configPath}。");
+    }
+}).WithNotParsed(errors =>
+{
+    logger.Error("解析命令行出错。");
+});
+
 logger.Info("程序启动。");
 logger.Info($"{appVer} 由 Hollis 编写，源代码、许可证、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
 
@@ -27,7 +48,6 @@ int tasksAborted = 0;
 try
 {
     UpdateStatus();
-    string configPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "config.json");
     if (!File.Exists(configPath))
     {
         logger.Fatal("配置文件不存在。");

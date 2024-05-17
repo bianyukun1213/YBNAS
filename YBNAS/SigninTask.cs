@@ -405,58 +405,17 @@ namespace YBNAS
             var reqGetLoginParams = "https://oauth.yiban.cn/" // 留出 BaseUrl，Flurl.Http 给相同域的请求复用同一个 HttpClient。
                 .AppendPathSegment("code/html") // 在此附加路径。
                 .SetQueryParams(new { client_id = "95626fa3080300ea" /* 校本化的应用 Id。 */, redirect_uri = "https://f.yiban.cn/iapp7463" })
-                .WithHeaders(new { Origin = "https://c.uyiban.com", User_Agent = _userAgent, appversion = _appVersion }) // User_Agent 会自动变成 User-Agent。 
-                                                                                                                         //.WithHeaders(new DefaultHeaders()) 把 header 提取成一个默认的结构体，行不通……抓包发现没有这些数据。
+                .WithHeaders(new { User_Agent = _userAgent}) // User_Agent 会自动变成 User-Agent。此处确实需要携带正确 UA，否则 cookie 不正确，不能获取认证参数。
+                                                             //.WithHeaders(new DefaultHeaders()) 把 header 提取成一个默认的结构体，行不通……抓包发现没有这些数据。
                 .WithCookies(out _jar); // 存入 cookie，供以后的请求携带。
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetLoginParams.Url}……");
             string loginParamsContent = await reqGetLoginParams.GetStringAsync();
             _logger.Debug($"{GetLogPrefix()}：收到响应：{loginParamsContent}。");
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            string rsaPubKey;
-            try
-            {
-                string keyBegPatt = "-----BEGIN PUBLIC KEY-----";
-                string keyEndPatt = "-----END PUBLIC KEY-----";
-                int keyBegPattPos = loginParamsContent.IndexOf(keyBegPatt);
-                int keyEndPattPos = loginParamsContent.IndexOf(keyEndPatt);
-                rsaPubKey = loginParamsContent.Substring(keyBegPattPos, keyEndPattPos - keyBegPattPos + keyEndPatt.Length);
-            }
-            catch (Exception)
-            {
-                rsaPubKey = string.Empty;
-            }
+            string rsaPubKey = new Regex(@"-----BEGIN PUBLIC KEY-----(.*\n)+-----END PUBLIC KEY-----").Match(loginParamsContent).Value ?? string.Empty;
             if (string.IsNullOrEmpty(rsaPubKey))
                 _logger.Error($"{GetLogPrefix()}：获取登录参数失败，RSA 加密公钥为空。");
             else
                 _logger.Debug($"{GetLogPrefix()}：取得 RSA 加密公钥：{rsaPubKey}。");
-            //string rsaPubKey = new Regex(@"-----BEGIN PUBLIC KEY-----(.+)-----END PUBLIC KEY-----").Match(loginParamsContent)?.Groups[1]?.Value ?? string.Empty;
-            //if (string.IsNullOrEmpty(rsaPubKey))
-            //    _logger.Error($"{GetLogPrefix()}：获取登录参数失败，RSA 加密公钥为空。");
-            //else
-            //    _logger.Debug($"{GetLogPrefix()}：取得 RSA 加密公钥：{rsaPubKey}。");
-
-
-
-
-
-
-
-
-
             string pageuse = new Regex(@"var page_use = '(.+)';").Match(loginParamsContent)?.Groups[1]?.Value ?? string.Empty;
             if (string.IsNullOrEmpty(pageuse))
                 _logger.Error($"{GetLogPrefix()}：获取登录参数失败，AJAX 签名（page_use）为空。");
@@ -475,7 +434,7 @@ namespace YBNAS
             var reqLogin = "https://oauth.yiban.cn/"
                 .AppendPathSegment("code/usersure")
                 .SetQueryParams(new { ajax_sign = ajaxSign })
-                .WithHeaders(new { User_Agent = _userAgent, appversion = _appVersion })
+                .WithHeaders(new { User_Agent = _userAgent})
                 .WithCookies(_jar);
             var loginBody = new { oauth_uname = _account, oauth_upwd = pwdEncoded, client_id = "95626fa3080300ea", redirect_uri = "https://f.yiban.cn/iapp7463" };
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqLogin.Url}，loginBody：{JsonSerializer.Serialize(loginBody, ServiceOptions.jsonSerializerOptions)}……");
@@ -495,7 +454,7 @@ namespace YBNAS
             var reqGetVr = "https://f.yiban.cn/"
                 .AppendPathSegment("iframe/index")
                 .SetQueryParams(new { act = "iapp7463" })
-                .WithHeaders(new { User_Agent = _userAgent, appversion = _appVersion })
+                .WithHeaders(new { User_Agent = _userAgent })
                 .WithCookies(_jar);
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetVr.Url}……");
             var resGetVr = await reqGetVr.WithAutoRedirect(false).GetAsync(); // 不要重定向，以便从响应头读取 verify_request。
@@ -505,34 +464,15 @@ namespace YBNAS
             {
                 if (name == "Location") // 在响应头的 Location 里找 verify_request。
                 {
-                    // 不知道为啥，调用 Flurl 解析 url 不好使，FirstOrDefault 返回 null。
-                    //var location = new Url(value);
-                    //Console.WriteLine(location);
-                    //vr = (string)location.QueryParams.FirstOrDefault("verify_request");
-
-
-
-
-
-
-                    string location = value;
-                    string vrBegPatt = "verify_request=";
-                    string vrEndPatt = "&yb_uid";
-                    int vrBegPattPos = location.IndexOf(vrBegPatt);
-                    int vrEndPattPos = location.IndexOf(vrEndPatt);
-                    if (vrBegPattPos != -1 && vrEndPattPos != -1)
-                        vr = location[(vrBegPattPos + vrBegPatt.Length)..vrEndPattPos];
+                    _logger.Debug($"{GetLogPrefix()}：查找到 Location：{value}。");
+                    vr = new Regex(@"verify_request=(.+)&yb_uid").Match(value)?.Groups[1]?.Value ?? string.Empty;
                     break;
-
-
-
-
-
                 }
             }
-            _logger.Debug($"{GetLogPrefix()}：提取的认证参数（verify_request）：{vr}。");
             if (string.IsNullOrEmpty(vr))
                 _logger.Error($"{GetLogPrefix()}：获取认证参数失败。");
+            else
+                _logger.Debug($"{GetLogPrefix()}：取得认证参数（verify_request）：{vr}。");
             return vr;
         }
 
@@ -542,7 +482,7 @@ namespace YBNAS
             var reqAuth = "https://api.uyiban.com/"
                 .AppendPathSegment("base/c/auth/yiban")
                 .SetQueryParams(new { verifyRequest = vr, CSRF = _csrfToken })
-                .WithHeaders(new { Origin = "https://c.uyiban.com" /* 认证 origin 是 c…… */, User_Agent = _userAgent /* 认证 UA 包含 yiban_android。 */, appversion = _appVersion, Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .WithHeaders(new { Origin = "https://c.uyiban.com" /* 认证 origin 是 c…… */, User_Agent = _userAgent /* 认证 UA 包含 yiban_android。 */,  Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqAuth.Url}……");
             var authContent = await reqAuth.GetStringAsync();

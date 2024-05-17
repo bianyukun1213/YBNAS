@@ -23,14 +23,11 @@ var parser = new Parser(config =>
 });
 parser.ParseArguments<CommandLineOptions>(args).WithParsed(o =>
 {
-    logger.Debug(o);
     if (!string.IsNullOrEmpty(o.ConfigPath))
+    {
         configPath = o.ConfigPath;
-}).WithNotParsed(errors =>
-{
-    //logger.Error("解析命令行出错。");
-    Console.WriteLine();
-    Environment.Exit(0);
+        Console.WriteLine("已从命令行参数读取配置文件路径。");
+    }
 });
 
 Console.WriteLine($"{appVer} 由 Hollis 编写，源代码、许可证、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
@@ -48,13 +45,13 @@ int tasksAborted = 0;
 try
 {
     UpdateStatus();
+    logger.Info($"配置文件是 {configPath}。");
     if (!File.Exists(configPath))
     {
         logger.Fatal("配置文件不存在。");
         PrintExitMsg();
         return -1;
     }
-    logger.Debug($"配置文件是 {configPath}。");
     string configStr = File.ReadAllText(configPath);
     logger.Debug("解析配置字符串……");
     JsonNode confRoot = JsonNode.Parse(configStr)!;

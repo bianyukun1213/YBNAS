@@ -15,6 +15,7 @@ Console.Title = appVer;
 Logger logger = LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
 string configPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "config.json");
 
+logger.Debug("程序启动。");
 var parser = new Parser(config =>
 {
     config.AutoVersion = false;
@@ -22,18 +23,17 @@ var parser = new Parser(config =>
 });
 parser.ParseArguments<CommandLineOptions>(args).WithParsed(o =>
 {
+    logger.Debug(o);
     if (!string.IsNullOrEmpty(o.ConfigPath))
-    {
         configPath = o.ConfigPath;
-        logger.Debug($"用户指定配置文件路径为 {configPath}。");
-    }
 }).WithNotParsed(errors =>
 {
-    logger.Error("解析命令行出错。");
+    //logger.Error("解析命令行出错。");
+    Console.WriteLine();
+    Environment.Exit(0);
 });
 
-logger.Info("程序启动。");
-logger.Info($"{appVer} 由 Hollis 编写，源代码、许可证、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
+Console.WriteLine($"{appVer} 由 Hollis 编写，源代码、许可证、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
 
 DateTime curDateTime = DateTime.Now;
 List<SigninTask> tasks = [];
@@ -231,7 +231,7 @@ foreach (var item in tasks)
 
 if (!Config.AutoSignin)
 {
-    logger.Info("按任意键开始签到。");
+    Console.WriteLine("按任意键开始签到。");
     Console.ReadKey(true); // true 不显示按下的按键。
 }
 
@@ -298,10 +298,9 @@ void PrintExitMsg()
 {
     if (!Config.AutoExit)
     {
-        logger.Info("按任意键退出。");
+        Console.WriteLine("按任意键退出。");
         Console.ReadKey(true);
     }
-    logger.Debug("即将退出。");
 }
 
 while (!(tasksRunning == 0 && tasksWaiting == 0))

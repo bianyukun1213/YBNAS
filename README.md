@@ -20,7 +20,9 @@
 
 ## 配置
 
-&emsp;&emsp;配置文件 `config.json` 位于程序目录，可配置多账号批量签到。
+&emsp;&emsp;默认配置文件 `config.json` 位于程序目录。可使用命令行参数 `--config <PATH>` 或 `-c <PATH>` 指定替代的配置文件路径。
+
+&emsp;&emsp;可配置多账号批量签到。
 
 ``` JSON
 {
@@ -123,6 +125,7 @@
 
 ## 使用的库
 
+- [CommandLineParser](https://github.com/commandlineparser/commandline)
 - [Flurl](https://github.com/tmenier/Flurl)
 - [RSA-csharp](https://github.com/xiangyuecn/RSA-csharp)
 - [NLog](https://github.com/NLog/NLog)

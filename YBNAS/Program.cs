@@ -15,7 +15,6 @@ Console.Title = appVer;
 Logger logger = LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
 string configPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "config.json");
 
-logger.Debug("程序启动。");
 var parser = new Parser(config =>
 {
     config.AutoVersion = false;
@@ -26,10 +25,16 @@ parser.ParseArguments<CommandLineOptions>(args).WithParsed(o =>
     if (!string.IsNullOrEmpty(o.ConfigPath))
     {
         configPath = o.ConfigPath;
-        Console.WriteLine("已从命令行参数读取配置文件路径。");
+        Console.WriteLine("已从命令行参数取得配置文件的读取路径。");
+    }
+    if (!string.IsNullOrEmpty(o.LogPath))
+    {
+        GlobalDiagnosticsContext.Set("logPath", o.LogPath);
+        Console.WriteLine("已从命令行参数取得日志的写入路径。");
     }
 });
 
+logger.Debug("程序启动。");
 Console.WriteLine($"{appVer} 由 Hollis 编写，源代码、许可证、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
 
 DateTime curDateTime = DateTime.Now;

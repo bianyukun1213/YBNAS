@@ -20,7 +20,9 @@
 
 ## 配置
 
-&emsp;&emsp;默认配置文件 `config.json` 位于程序目录。可使用命令行参数 `--config <PATH>` 或 `-c <PATH>` 指定替代的配置文件路径。
+&emsp;&emsp;默认配置文件 `config.json` 位于程序目录。
+
+&emsp;&emsp;可使用命令行参数 `--config-path <PATH>` 或 `-c <PATH>` 指定替代的配置文件读取路径。还可使用 `--log-path <PATH>` 或 `-l <PATH>` 指定替代的日志写入路径。
 
 &emsp;&emsp;可配置多账号批量签到。
 

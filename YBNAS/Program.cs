@@ -7,6 +7,7 @@ using YBNAS;
 using System.Text.Json;
 using CommandLine;
 using Error = YBNAS.Error;
+using Json.Schema;
 
 var asm = System.Reflection.Assembly.GetExecutingAssembly();
 string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
@@ -14,6 +15,7 @@ string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
 Console.Title = appVer;
 Logger logger = LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
 string configPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "config.json");
+string configSchemaPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "config.json.schema");
 string cachePath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "cache");
 
 var parser = new Parser(config =>
@@ -86,7 +88,66 @@ try
     }
     string configStr = File.ReadAllText(configPath);
     logger.Debug("解析配置字符串……");
+    //    var schema = await JsonSchema.FromFileAsync(configSchemaPath);
+    //    var errors = schema.Validate("""
+    //{
+    //  "AutoSignin": true,
+    //  "AutoExit": false,
+    //  "Proxy": "",
+    //  "Shuffle": true,
+    //  "MaxRunningTasks": 4,
+    //  "MaxRetries": 3,
+    //  "RandomDelay": [
+    //    0,
+    //    0
+    //  ],
+    //  "ExpireIn": "",
+    //  "SigninConfigs": [
+    //    {
+    //      "Enable": true,
+    //      "Name": "xiaojia",
+    //      "Account": "13009700568",
+    //      "Password": "dnggitgn001213",
+    //      "Position": [
+    //        118.403892,
+    //        24.973737
+    //      ],
+    //      "Address": "0",
+    //      "Photo": "",
+    //      "Reason": "",
+    //      "TimeSpan": 000
+    //    }
+    //  ]
+    //}
+    //""");
+    //    if (errors.Count > 0)
+    //    {
+    //        //logger.Error("配置字符串格式错误：");
+    //        foreach (var error in errors)
+    //        {
+    //            //Console.WriteLine(error.Path + ": " + error.Kind);
+    //            //Console.WriteLine(error.Path+"@"+error.LineNumber+":"+error.LineNumber + ": " + error.Kind);
+    //            string line = ":" + error.LineNumber + ":" + error.LinePosition;
+    //            //logger.Error($"{error.Kind} at {error.Path}{(error.HasLineInfo ? line : string.Empty)}");
+    //            logger.Error($"配置字符串格式错误：{error}");
+    //        }
+    //        PrintExitMsg();
+    //        return -1;
+    //    }
+
+
+
+
     JsonNode confRoot = JsonNode.Parse(configStr)!;
+
+
+    var mySchema = JsonSchema.FromFile(configSchemaPath);
+    var res = mySchema.Evaluate(confRoot);
+    foreach (var item in res.Details)
+    {
+        Console.WriteLine(item);
+    }
+
     Config.AutoSignin = confRoot["AutoSignin"].Deserialize<bool>();
     logger.Debug($"配置 AutoSignin: {Config.AutoSignin}。");
     Config.AutoExit = confRoot["AutoExit"].Deserialize<bool>();

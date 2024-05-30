@@ -1,0 +1,111 @@
+﻿{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+        "AutoSignin": {
+            "type": "boolean"
+        },
+        "AutoExit": {
+            "type": "boolean"
+        },
+        "Proxy": {
+            "type": "string"
+        },
+        "Shuffle": {
+            "type": "boolean"
+        },
+        "MaxRunningTasks": {
+            "type": "integer"
+        },
+        "MaxRetries": {
+            "type": "integer"
+        },
+        "RandomDelay": {
+            "type": "array",
+            "items": {
+                "type": "integer"
+            }
+        },
+        "ExpireIn": {
+            "type": "integer"
+        },
+        "SigninConfigs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Enable": {
+                        "type": "boolean"
+                    },
+                    "Name": {
+                        "type": "string"
+                    },
+                    "Account": {
+                        "type": "string"
+                    },
+                    "Password": {
+                        "type": "string"
+                    },
+                    "Device": {
+                        "type": "object",
+                        "properties": {
+                            "Code": {
+                                "type": "string"
+                            },
+                            "PhoneModel": {
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "Position": {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        }
+                    },
+                    "Address": {
+                        "type": "string"
+                    },
+                    "Photo": {
+                        "type": "string"
+                    },
+                    "Reason": {
+                        "type": "string"
+                    },
+                    "TimeSpan": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "Enable",
+                    "Name",
+                    "Account",
+                    "Password",
+                    "Device",
+                    "Position",
+                    "Address",
+                    "Photo",
+                    "Reason",
+                    "TimeSpan"
+                ]
+            }
+        }
+    },
+    "additionalProperties": false,
+    "required": [
+        "AutoSignin",
+        "AutoExit",
+        "Proxy",
+        "Shuffle",
+        "MaxRunningTasks",
+        "MaxRetries",
+        "RandomDelay",
+        "ExpireIn",
+        "SigninConfigs"
+    ]
+}

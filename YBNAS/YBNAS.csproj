@@ -18,10 +18,14 @@
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
     <PackageReference Include="Flurl.Http" Version="4.0.2" />
+    <PackageReference Include="JsonSchema.Net" Version="7.0.2" />
     <PackageReference Include="NLog" Version="5.3.2" />
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="config.json.schema">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

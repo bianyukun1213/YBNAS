@@ -131,6 +131,8 @@ namespace YBNAS
         private string _appVersion = string.Empty; // 不要 readonly。iOS 可能有另一套版本号。
         private string _userAgent = string.Empty;
 
+        private long _lastSuccess = 0;
+
         private User _user;
         private Device _device;
 
@@ -163,6 +165,8 @@ namespace YBNAS
         public int EndHour { get { return _endHour; } }
         public int EndMin { get { return _endMin; } }
 
+        public long LastSuccess { get { return _lastSuccess; } }
+
         public User User { get { return _user; } }
         public Device Device { get { return _device; } }
 
@@ -179,6 +183,7 @@ namespace YBNAS
             int beginMin,
             int endHour,
             int endMin,
+            long lastSuccess,
             Device device = new()
             )
         {
@@ -199,6 +204,8 @@ namespace YBNAS
             _beginMin = beginMin;
             _endHour = endHour;
             _endMin = endMin;
+
+            _lastSuccess = lastSuccess;
 
             _csrfToken = Guid.NewGuid().ToString("N");
             _appVersion = "5.1.2";
@@ -242,6 +249,20 @@ namespace YBNAS
                 _statusText = "正在运行";
                 _logger.Debug($"{GetLogPrefix()}：开始运行。");
                 OnRun?.Invoke(this, Error.Ok);
+                DateTimeOffset curDateTime = DateTimeOffset.UtcNow;
+                long curTimestamp = curDateTime.ToUnixTimeSeconds();
+                DateTimeOffset lastSuccessDateTime = DateTimeOffset.FromUnixTimeSeconds(_lastSuccess);
+                if (curDateTime.Date == lastSuccessDateTime.Date &&
+                    curTimestamp - _lastSuccess > 0 &&
+                    curTimestamp - _lastSuccess < Config.ExpireIn) // 表示签到状态已被更改。
+                {
+                    _logger.Info($"{GetLogPrefix()}：{Config.ExpireIn} 秒内曾成功签到，将跳过。");
+                    _status = TaskStatus.Skipped;
+                    _statusText = $"{Config.ExpireIn} 秒内曾成功签到";
+                    _logger.Debug($"{GetLogPrefix()}：跳过运行。");
+                    OnSkip?.Invoke(this, Error.Ok);
+                    return;
+                }
                 _jar = new(); // 存 cookie。任务失败重试，使用新 cookie。
                 _logger.Debug($"{GetLogPrefix()}：新建 CookieJar。");
                 LoginParams loginParams = await GetLoginParams();
@@ -405,8 +426,8 @@ namespace YBNAS
             var reqGetLoginParams = "https://oauth.yiban.cn/" // 留出 BaseUrl，Flurl.Http 给相同域的请求复用同一个 HttpClient。
                 .AppendPathSegment("code/html") // 在此附加路径。
                 .SetQueryParams(new { client_id = "95626fa3080300ea" /* 校本化的应用 Id。 */, redirect_uri = "https://f.yiban.cn/iapp7463" })
-                .WithHeaders(new { User_Agent = _userAgent}) // User_Agent 会自动变成 User-Agent。此处确实需要携带正确 UA，否则 cookie 不正确，不能获取认证参数。
-                                                             //.WithHeaders(new DefaultHeaders()) 把 header 提取成一个默认的结构体，行不通……抓包发现没有这些数据。
+                .WithHeaders(new { User_Agent = _userAgent }) // User_Agent 会自动变成 User-Agent。此处确实需要携带正确 UA，否则 cookie 不正确，不能获取认证参数。
+                                                              //.WithHeaders(new DefaultHeaders()) 把 header 提取成一个默认的结构体，行不通……抓包发现没有这些数据。
                 .WithCookies(out _jar); // 存入 cookie，供以后的请求携带。
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetLoginParams.Url}……");
             string loginParamsContent = await reqGetLoginParams.GetStringAsync();
@@ -434,7 +455,7 @@ namespace YBNAS
             var reqLogin = "https://oauth.yiban.cn/"
                 .AppendPathSegment("code/usersure")
                 .SetQueryParams(new { ajax_sign = ajaxSign })
-                .WithHeaders(new { User_Agent = _userAgent})
+                .WithHeaders(new { User_Agent = _userAgent })
                 .WithCookies(_jar);
             var loginBody = new { oauth_uname = _account, oauth_upwd = pwdEncoded, client_id = "95626fa3080300ea", redirect_uri = "https://f.yiban.cn/iapp7463" };
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqLogin.Url}，loginBody：{JsonSerializer.Serialize(loginBody, ServiceOptions.jsonSerializerOptions)}……");
@@ -482,7 +503,7 @@ namespace YBNAS
             var reqAuth = "https://api.uyiban.com/"
                 .AppendPathSegment("base/c/auth/yiban")
                 .SetQueryParams(new { verifyRequest = vr, CSRF = _csrfToken })
-                .WithHeaders(new { Origin = "https://c.uyiban.com" /* 认证 origin 是 c…… */, User_Agent = _userAgent /* 认证 UA 包含 yiban_android。 */,  Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
+                .WithHeaders(new { Origin = "https://c.uyiban.com" /* 认证 origin 是 c…… */, User_Agent = _userAgent /* 认证 UA 包含 yiban_android。 */, Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqAuth.Url}……");
             var authContent = await reqAuth.GetStringAsync();

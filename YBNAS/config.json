@@ -6,6 +6,7 @@
   "MaxRunningTasks": 4,
   "MaxRetries": 3,
   "RandomDelay": [ 1, 10 ],
+  "ExpireIn": 0,
   "SigninConfigs": [
     {
       "Enable": true,

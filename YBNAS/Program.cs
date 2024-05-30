@@ -14,6 +14,7 @@ string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
 Console.Title = appVer;
 Logger logger = LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
 string configPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "config.json");
+string cachePath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "cache");
 
 var parser = new Parser(config =>
 {
@@ -27,6 +28,11 @@ parser.ParseArguments<CommandLineOptions>(args).WithParsed(o =>
         configPath = o.ConfigPath;
         Console.WriteLine("已从命令行参数取得配置文件的读取路径。");
     }
+    if (!string.IsNullOrEmpty(o.CachePath))
+    {
+        cachePath = o.CachePath;
+        Console.WriteLine("已从命令行参数取得缓存文件的读取路径。");
+    }
     if (!string.IsNullOrEmpty(o.LogPath))
     {
         GlobalDiagnosticsContext.Set("logPath", o.LogPath);
@@ -37,15 +43,36 @@ parser.ParseArguments<CommandLineOptions>(args).WithParsed(o =>
 logger.Debug("程序启动。");
 Console.WriteLine($"{appVer} 由 Hollis 编写，源代码、许可证、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
 
-DateTime curDateTime = DateTime.Now;
+DateTimeOffset curDateTime = DateTimeOffset.Now;
 List<SigninTask> tasks = [];
 Dictionary<string, int> retries = [];
+Dictionary<string, long> lastSuccesses = [];
 
 int tasksRunning = 0;
 int tasksComplete = 0;
 int tasksSkipped = 0;
 int tasksWaiting = tasks.Count;
 int tasksAborted = 0;
+
+try
+{
+    logger.Debug($"缓存文件是 {cachePath}。");
+    if (!File.Exists(cachePath))
+    {
+        logger.Debug("缓存文件不存在。");
+    }
+    else
+    {
+        string cacheStr = File.ReadAllText(cachePath);
+        var successes = JsonNode.Parse(cacheStr)!.Deserialize<Dictionary<string, long>>();
+        if (successes != null)
+            lastSuccesses = successes;
+    }
+}
+catch (Exception ex)
+{
+    logger.Warn(ex, "解析缓存文件时出错。");
+}
 
 try
 {
@@ -98,7 +125,7 @@ try
         logger.Warn("配置 MaxRetries 不应小于 0，将使用内置值 3。");
         Config.MaxRetries = 3;
     }
-    logger.Debug($"配置 MaxRetry: {Config.MaxRetries}。");
+    logger.Debug($"配置 MaxRetries: {Config.MaxRetries}。");
     Config.RandomDelay = confRoot["RandomDelay"].Deserialize<List<int>>() ?? [];
     if (Config.RandomDelay.Count != 2 ||
         Config.RandomDelay[0] < 0 ||
@@ -112,6 +139,13 @@ try
         Config.RandomDelay = [1, 10];
     }
     logger.Debug($"配置 RandomDelay: [{Config.RandomDelay[0]}, {Config.RandomDelay[1]}]。");
+    Config.ExpireIn = confRoot["ExpireIn"].Deserialize<int>();
+    if (Config.ExpireIn < 0)
+    {
+        logger.Warn("配置 ExpireIn 不应小于 0，将使用内置值 0。");
+        Config.ExpireIn = 0;
+    }
+    logger.Debug($"配置 ExpireIn: {Config.ExpireIn}。");
     Config.SigninConfigs = confRoot["SigninConfigs"].Deserialize<List<SigninConfig>>() ?? [];
     if (Config.SigninConfigs.Count == 0)
     {
@@ -121,7 +155,6 @@ try
     }
     foreach (SigninConfig conf in Config.SigninConfigs)
     {
-
         SigninConfig tempSc = JsonSerializer.Deserialize<SigninConfig>(JsonSerializer.Serialize(conf, ServiceOptions.jsonSerializerOptions))!;
         tempSc.Password = "<已抹除>";
         logger.Debug($"解析签到配置 {tempSc}……"); // 在日志中抹除密码。
@@ -184,6 +217,9 @@ try
             logger.Info(getSigninConfigSkippedStr("签到时间段不包含当前时间"));
             continue;
         }
+        if (!lastSuccesses.TryGetValue(conf.Account, out long lastSuccess))
+            lastSuccess = 0;
+        //lastSuccess = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 100;
         SigninTask task = new(
             conf.Name,
             conf.Account,
@@ -197,6 +233,7 @@ try
             conf.TimeSpan[1],
             conf.TimeSpan[2],
             conf.TimeSpan[3],
+            lastSuccess,
             conf.Device
             );
         tasks.Add(task);
@@ -227,7 +264,7 @@ foreach (var item in tasks)
 {
     item.OnRun += St_OnRun;
     item.OnComplete += St_OnComplete;
-    item.OnSkip += St_OnComplete; // 目前跳过和完成同样处理。
+    item.OnSkip += St_OnSkip;
     item.OnError += St_OnError;
 }
 
@@ -266,6 +303,15 @@ void St_OnRun(SigninTask task, Error err)
 }
 
 void St_OnComplete(SigninTask task, Error err)
+{
+    long curTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+    if (!lastSuccesses.TryAdd(task.Account, curTimestamp))
+        lastSuccesses[task.Account] = curTimestamp;
+    UpdateStatus();
+    RunNextTask();
+}
+
+void St_OnSkip(SigninTask task, Error err)
 {
     UpdateStatus();
     RunNextTask();
@@ -308,6 +354,15 @@ void PrintExitMsg()
 while (!(tasksRunning == 0 && tasksWaiting == 0))
 {
     await Task.Delay(1000);
+}
+
+try
+{
+    File.WriteAllText(cachePath, JsonSerializer.Serialize(lastSuccesses, ServiceOptions.jsonSerializerOptions));
+}
+catch (Exception ex)
+{
+    logger.Error(ex, "写入缓存文件时出错。");
 }
 
 logger.Info("已尝试运行所有任务。");

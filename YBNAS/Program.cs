@@ -7,7 +7,6 @@ using YBNAS;
 using System.Text.Json;
 using CommandLine;
 using Error = YBNAS.Error;
-using Json.Schema;
 
 var asm = System.Reflection.Assembly.GetExecutingAssembly();
 string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
@@ -88,66 +87,7 @@ try
     }
     string configStr = File.ReadAllText(configPath);
     logger.Debug("解析配置字符串……");
-    //    var schema = await JsonSchema.FromFileAsync(configSchemaPath);
-    //    var errors = schema.Validate("""
-    //{
-    //  "AutoSignin": true,
-    //  "AutoExit": false,
-    //  "Proxy": "",
-    //  "Shuffle": true,
-    //  "MaxRunningTasks": 4,
-    //  "MaxRetries": 3,
-    //  "RandomDelay": [
-    //    0,
-    //    0
-    //  ],
-    //  "ExpireIn": "",
-    //  "SigninConfigs": [
-    //    {
-    //      "Enable": true,
-    //      "Name": "xiaojia",
-    //      "Account": "13009700568",
-    //      "Password": "dnggitgn001213",
-    //      "Position": [
-    //        118.403892,
-    //        24.973737
-    //      ],
-    //      "Address": "0",
-    //      "Photo": "",
-    //      "Reason": "",
-    //      "TimeSpan": 000
-    //    }
-    //  ]
-    //}
-    //""");
-    //    if (errors.Count > 0)
-    //    {
-    //        //logger.Error("配置字符串格式错误：");
-    //        foreach (var error in errors)
-    //        {
-    //            //Console.WriteLine(error.Path + ": " + error.Kind);
-    //            //Console.WriteLine(error.Path+"@"+error.LineNumber+":"+error.LineNumber + ": " + error.Kind);
-    //            string line = ":" + error.LineNumber + ":" + error.LinePosition;
-    //            //logger.Error($"{error.Kind} at {error.Path}{(error.HasLineInfo ? line : string.Empty)}");
-    //            logger.Error($"配置字符串格式错误：{error}");
-    //        }
-    //        PrintExitMsg();
-    //        return -1;
-    //    }
-
-
-
-
     JsonNode confRoot = JsonNode.Parse(configStr)!;
-
-
-    var mySchema = JsonSchema.FromFile(configSchemaPath);
-    var res = mySchema.Evaluate(confRoot);
-    foreach (var item in res.Details)
-    {
-        Console.WriteLine(item);
-    }
-
     Config.AutoSignin = confRoot["AutoSignin"].Deserialize<bool>();
     logger.Debug($"配置 AutoSignin: {Config.AutoSignin}。");
     Config.AutoExit = confRoot["AutoExit"].Deserialize<bool>();
@@ -201,9 +141,9 @@ try
     }
     logger.Debug($"配置 RandomDelay: [{Config.RandomDelay[0]}, {Config.RandomDelay[1]}]。");
     Config.ExpireIn = confRoot["ExpireIn"].Deserialize<int>();
-    if (Config.ExpireIn < 0)
+    if (Config.ExpireIn < 0 && Config.ExpireIn != -1)
     {
-        logger.Warn("配置 ExpireIn 不应小于 0，将使用内置值 0。");
+        logger.Warn("配置 ExpireIn 无效，将使用内置值 0。");
         Config.ExpireIn = 0;
     }
     logger.Debug($"配置 ExpireIn: {Config.ExpireIn}。");
@@ -365,9 +305,8 @@ void St_OnRun(SigninTask task, Error err)
 
 void St_OnComplete(SigninTask task, Error err)
 {
-    long curTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-    if (!lastSuccesses.TryAdd(task.Account, curTimestamp))
-        lastSuccesses[task.Account] = curTimestamp;
+    if (!lastSuccesses.TryAdd(task.Account, task.LastSuccess))
+        lastSuccesses[task.Account] = task.LastSuccess;
     UpdateStatus();
     RunNextTask();
 }

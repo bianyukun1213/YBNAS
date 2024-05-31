@@ -252,9 +252,10 @@ namespace YBNAS
                 DateTimeOffset curDateTime = DateTimeOffset.UtcNow;
                 long curTimestamp = curDateTime.ToUnixTimeSeconds();
                 DateTimeOffset lastSuccessDateTime = DateTimeOffset.FromUnixTimeSeconds(_lastSuccess);
-                if (curDateTime.Date == lastSuccessDateTime.Date &&
+                if (Config.ExpireIn == -1 ||
+                    (curDateTime.Date == lastSuccessDateTime.Date &&
                     curTimestamp - _lastSuccess > 0 &&
-                    curTimestamp - _lastSuccess < Config.ExpireIn) // 表示签到状态已被更改。
+                    curTimestamp - _lastSuccess < Config.ExpireIn))
                 {
                     _logger.Info($"{GetLogPrefix()}：{Config.ExpireIn} 秒内曾成功签到，将跳过。");
                     _status = TaskStatus.Skipped;
@@ -408,6 +409,7 @@ namespace YBNAS
                 _logger.Info($"{GetLogPrefix()}：签到成功！Have a safe day.");
                 _status = TaskStatus.Complete;
                 _statusText = "完成";
+                _lastSuccess = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 _logger.Debug($"{GetLogPrefix()}：运行完成。");
                 OnComplete?.Invoke(this, Error.Ok);
             }

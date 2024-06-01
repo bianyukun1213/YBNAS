@@ -1,5 +1,5 @@
 ﻿{
-  "AutoSignin": true,
+  "AutoSignIn": true,
   "AutoExit": false,
   "Proxy": "",
   "Shuffle": true,
@@ -7,7 +7,7 @@
   "MaxRetries": 3,
   "RandomDelay": [ 1, 10 ],
   "ExpireIn": 0,
-  "SigninConfigs": [
+  "SignInConfigs": [
     {
       "Enable": true,
       "Name": "张三",
@@ -43,7 +43,7 @@
         45.756982
       ],
       "Address": "黑龙江省哈尔滨市南岗区花园街道西大直街国际饭店",
-      "Photo": "D:\\signin_photo\\photo.jpg",
+      "Photo": "D:\\sign_in_photo\\photo.jpg",
       "Outside": true,
       "Reason": "跟国际友人聚餐。",
       "TimeSpan": [

@@ -28,7 +28,7 @@
 
 ``` JSON
 {
-  "AutoSignin": true,
+  "AutoSignIn": true,
   "AutoExit": false,
   "Proxy": "",
   "Shuffle": true,
@@ -36,7 +36,7 @@
   "MaxRetries": 3,
   "RandomDelay": [ 1, 10 ],
   "ExpireIn": 0,
-  "SigninConfigs": [
+  "SignInConfigs": [
     {
       "Enable": true,
       "Name": "张三",
@@ -72,7 +72,7 @@
         45.756982
       ],
       "Address": "黑龙江省哈尔滨市南岗区花园街道西大直街国际饭店",
-      "Photo": "D:\\signin_photo\\photo.jpg",
+      "Photo": "D:\\sign_in_photo\\photo.jpg",
       "Reason": "跟国际友人聚餐。",
       "Outside": true,
       "TimeSpan": [
@@ -86,7 +86,7 @@
 }
 ```
 
-&emsp;&emsp;`AutoSignin` 字段配置是否自动签到。如不自动签到，则等待用户按任意键签到。
+&emsp;&emsp;`AutoSignIn` 字段配置是否自动签到。如不自动签到，则等待用户按任意键签到。
 
 &emsp;&emsp;`AutoExit` 字段配置已完成所有任务的执行或程序运行出错后，是否自动退出。如不自动退出，则等待用户按任意键退出。
 
@@ -102,7 +102,7 @@
 
 &emsp;&emsp;`ExpireIn` 字段配置以秒为单位的缓存有效期。以 `300` 为例：在程序重复运行时，对于每个签到账号，若上次签到成功的时刻距离此刻不超过 300s，则跳过此账号的签到。跨日期的情况不计算在内。内置值及默认值均为 `0`，即在程序重复运行时，对于每个签到账号，不论上次签到成功是何时，都重复签到。设为 `-1` 则总是跳过已经签到成功的账号。可删除 `cache` 文件重置缓存。
 
-&emsp;&emsp;`SigninConfigs` 为签到任务配置，其中：
+&emsp;&emsp;`SignInConfigs` 为签到任务配置，其中：
 
 &emsp;&emsp;`Enable` 字段配置这条签到配置是否启用。未启用的签到配置在解析时跳过。
 

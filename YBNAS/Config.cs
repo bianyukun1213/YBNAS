@@ -2,7 +2,7 @@
 
 namespace YBNAS
 {
-    internal struct SigninConfig
+    internal struct SignInConfig
     {
         public bool Enable { get; set; }
         public string Name { get; set; }
@@ -22,7 +22,7 @@ namespace YBNAS
     }
     internal static class Config
     {
-        public static bool AutoSignin { get; set; }
+        public static bool AutoSignIn { get; set; }
         public static bool AutoExit { get; set; }
         public static string Proxy { get; set; } = string.Empty;
         public static bool Shuffle { get; set; }
@@ -30,6 +30,6 @@ namespace YBNAS
         public static int MaxRetries { get; set; }
         public static List<int> RandomDelay { get; set; } = [];
         public static long ExpireIn { get; set; }
-        public static List<SigninConfig> SigninConfigs { get; set; } = [];
+        public static List<SignInConfig> SignInConfigs { get; set; } = [];
     }
 }

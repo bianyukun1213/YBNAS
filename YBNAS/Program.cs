@@ -45,7 +45,7 @@ logger.Debug("程序启动。");
 Console.WriteLine($"{appVer} 由 Hollis 编写，源代码、许可证、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
 
 DateTimeOffset curDateTime = DateTimeOffset.Now;
-List<SigninTask> tasks = [];
+List<SignInTask> tasks = [];
 Dictionary<string, int> retries = [];
 Dictionary<string, long> lastSuccesses = [];
 
@@ -88,8 +88,8 @@ try
     string configStr = File.ReadAllText(configPath);
     logger.Debug("解析配置字符串……");
     JsonNode confRoot = JsonNode.Parse(configStr)!;
-    Config.AutoSignin = confRoot["AutoSignin"].Deserialize<bool>();
-    logger.Debug($"配置 AutoSignin: {Config.AutoSignin}。");
+    Config.AutoSignIn = confRoot["AutoSignIn"].Deserialize<bool>();
+    logger.Debug($"配置 AutoSignIn: {Config.AutoSignIn}。");
     Config.AutoExit = confRoot["AutoExit"].Deserialize<bool>();
     logger.Debug($"配置 AutoExit: {Config.AutoExit}。");
     Config.Proxy = confRoot["Proxy"].Deserialize<string>() ?? string.Empty;
@@ -147,45 +147,45 @@ try
         Config.ExpireIn = 0;
     }
     logger.Debug($"配置 ExpireIn: {Config.ExpireIn}。");
-    Config.SigninConfigs = confRoot["SigninConfigs"].Deserialize<List<SigninConfig>>() ?? [];
-    if (Config.SigninConfigs.Count == 0)
+    Config.SignInConfigs = confRoot["SignInConfigs"].Deserialize<List<SignInConfig>>() ?? [];
+    if (Config.SignInConfigs.Count == 0)
     {
-        logger.Warn("配置 SigninConfigs 为空。");
+        logger.Warn("配置 SignInConfigs 为空。");
         PrintExitMsg();
         return -1;
     }
-    foreach (SigninConfig conf in Config.SigninConfigs)
+    foreach (SignInConfig conf in Config.SignInConfigs)
     {
-        SigninConfig tempSc = JsonSerializer.Deserialize<SigninConfig>(JsonSerializer.Serialize(conf, ServiceOptions.jsonSerializerOptions))!;
+        SignInConfig tempSc = JsonSerializer.Deserialize<SignInConfig>(JsonSerializer.Serialize(conf, ServiceOptions.jsonSerializerOptions))!;
         tempSc.Password = "<已抹除>";
         logger.Debug($"解析签到配置 {tempSc}……"); // 在日志中抹除密码。
-        string getSigninConfigSkippedStr(string reason)
+        string getSignInConfigSkippedStr(string reason)
         {
-            return $"第 {Config.SigninConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name.Trim()) ? string.Empty : "（" + conf.Name + "）")}{reason}，将跳过解析。";
+            return $"第 {Config.SignInConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name.Trim()) ? string.Empty : "（" + conf.Name + "）")}{reason}，将跳过解析。";
         }
         if (!conf.Enable)
         {
-            logger.Info(getSigninConfigSkippedStr("未启用"));
+            logger.Info(getSignInConfigSkippedStr("未启用"));
             continue;
         }
         if (string.IsNullOrEmpty(conf.Account?.Trim()))
         {
-            logger.Warn(getSigninConfigSkippedStr("账号为空"));
+            logger.Warn(getSignInConfigSkippedStr("账号为空"));
             continue;
         }
         if (string.IsNullOrEmpty(conf.Password?.Trim()))
         {
-            logger.Warn(getSigninConfigSkippedStr("密码为空"));
+            logger.Warn(getSignInConfigSkippedStr("密码为空"));
             continue;
         }
         if (conf.Position?.Count != 2)
         {
-            logger.Warn(getSigninConfigSkippedStr("签到坐标格式错误"));
+            logger.Warn(getSignInConfigSkippedStr("签到坐标格式错误"));
             continue;
         }
         if (string.IsNullOrEmpty(conf.Address?.Trim()))
         {
-            logger.Warn(getSigninConfigSkippedStr("签到地址为空"));
+            logger.Warn(getSignInConfigSkippedStr("签到地址为空"));
             continue;
         }
         if (!string.IsNullOrEmpty(conf.Photo?.Trim()))
@@ -195,19 +195,19 @@ try
                 FileInfo fileInfo = new(conf.Photo);
                 if ((!fileInfo.Extension.Equals(".jpg", StringComparison.CurrentCultureIgnoreCase) && !fileInfo.Extension.Equals(".jpeg", StringComparison.CurrentCultureIgnoreCase)) || fileInfo.Length == 0)
                 {
-                    logger.Warn(getSigninConfigSkippedStr("照片文件无效"));
+                    logger.Warn(getSignInConfigSkippedStr("照片文件无效"));
                     continue;
                 }
             }
             catch (Exception ex)
             {
-                logger.Warn(ex, getSigninConfigSkippedStr("照片文件读取失败"));
+                logger.Warn(ex, getSignInConfigSkippedStr("照片文件读取失败"));
                 continue;
             }
         }
         if (conf.TimeSpan?.Count != 4)
         {
-            logger.Warn(getSigninConfigSkippedStr("签到时间段格式错误"));
+            logger.Warn(getSignInConfigSkippedStr("签到时间段格式错误"));
             continue;
         }
         int confBegTime = conf.TimeSpan[0] * 60 + conf.TimeSpan[1];
@@ -215,13 +215,13 @@ try
         int curTime = curDateTime.Hour * 60 + curDateTime.Minute;
         if (curTime < confBegTime || curTime > confEndTime)
         {
-            logger.Info(getSigninConfigSkippedStr("签到时间段不包含当前时间"));
+            logger.Info(getSignInConfigSkippedStr("签到时间段不包含当前时间"));
             continue;
         }
         if (!lastSuccesses.TryGetValue(conf.Account, out long lastSuccess))
             lastSuccess = 0;
         //lastSuccess = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 100;
-        SigninTask task = new(
+        SignInTask task = new(
             conf.Name,
             conf.Account,
             conf.Password,
@@ -246,7 +246,7 @@ try
         Random rd = new();
         tasks = [.. tasks.OrderBy(task => rd.Next())];
     }
-    logger.Info($"共 {Config.SigninConfigs.Count} 条签到配置，{tasks.Count} 条可用且已解析。");
+    logger.Info($"共 {Config.SignInConfigs.Count} 条签到配置，{tasks.Count} 条可用且已解析。");
     if (tasks.Count == 0)
     {
         logger.Warn("当前时间下无可用签到配置。");
@@ -269,7 +269,7 @@ foreach (var item in tasks)
     item.OnError += St_OnError;
 }
 
-if (!Config.AutoSignin)
+if (!Config.AutoSignIn)
 {
     Console.WriteLine("按任意键开始签到。");
     Console.ReadKey(true); // true 不显示按下的按键。
@@ -284,26 +284,26 @@ for (int i = 0; i < tasks.Count; i++)
 
 void UpdateStatus()
 {
-    tasksRunning = tasks.Count(x => x.Status == SigninTask.TaskStatus.Running);
-    tasksComplete = tasks.Count(x => x.Status == SigninTask.TaskStatus.Complete);
-    tasksSkipped = tasks.Count(x => x.Status == SigninTask.TaskStatus.Skipped);
-    tasksWaiting = tasks.Count(x => x.Status == SigninTask.TaskStatus.Waiting);
-    tasksAborted = tasks.Count(x => x.Status == SigninTask.TaskStatus.Aborted);
-    Console.Title = $"{appVer} | {Config.SigninConfigs.Count} 签到配置，{tasks.Count} 已解析：{tasksRunning} 运行，{tasksComplete} 完成，{tasksSkipped} 跳过，{tasksWaiting} 等待，{tasksAborted} 中止";
+    tasksRunning = tasks.Count(x => x.Status == SignInTask.TaskStatus.Running);
+    tasksComplete = tasks.Count(x => x.Status == SignInTask.TaskStatus.Complete);
+    tasksSkipped = tasks.Count(x => x.Status == SignInTask.TaskStatus.Skipped);
+    tasksWaiting = tasks.Count(x => x.Status == SignInTask.TaskStatus.Waiting);
+    tasksAborted = tasks.Count(x => x.Status == SignInTask.TaskStatus.Aborted);
+    Console.Title = $"{appVer} | {Config.SignInConfigs.Count} 签到配置，{tasks.Count} 已解析：{tasksRunning} 运行，{tasksComplete} 完成，{tasksSkipped} 跳过，{tasksWaiting} 等待，{tasksAborted} 中止";
 }
 
 void RunNextTask()
 {
-    SigninTask? one = tasks.Find(x => x.Status == SigninTask.TaskStatus.Waiting);
+    SignInTask? one = tasks.Find(x => x.Status == SignInTask.TaskStatus.Waiting);
     var res = one?.Run();
 }
 
-void St_OnRun(SigninTask task, Error err)
+void St_OnRun(SignInTask task, Error err)
 {
     UpdateStatus();
 }
 
-void St_OnComplete(SigninTask task, Error err)
+void St_OnComplete(SignInTask task, Error err)
 {
     if (!lastSuccesses.TryAdd(task.Account, task.LastSuccess))
         lastSuccesses[task.Account] = task.LastSuccess;
@@ -311,13 +311,13 @@ void St_OnComplete(SigninTask task, Error err)
     RunNextTask();
 }
 
-void St_OnSkip(SigninTask task, Error err)
+void St_OnSkip(SignInTask task, Error err)
 {
     UpdateStatus();
     RunNextTask();
 }
 
-void St_OnError(SigninTask task, Error err)
+void St_OnError(SignInTask task, Error err)
 {
     UpdateStatus();
     bool succ = retries.TryGetValue(task.TaskGuid, out int curRetries);
@@ -369,7 +369,7 @@ logger.Info("已尝试运行所有任务。");
 if (tasksAborted > 0)
 {
     logger.Warn($"----中止（{tasksAborted}/{tasks.Count}）----");
-    foreach (var item in tasks.FindAll(x => x.Status == SigninTask.TaskStatus.Aborted))
+    foreach (var item in tasks.FindAll(x => x.Status == SignInTask.TaskStatus.Aborted))
     {
         logger.Warn($"{item.GetLogPrefix()}：{item.StatusText}。");
     }
@@ -377,7 +377,7 @@ if (tasksAborted > 0)
 if (tasksSkipped > 0)
 {
     logger.Info($"----跳过（{tasksSkipped}/{tasks.Count}）----");
-    foreach (var item in tasks.FindAll(x => x.Status == SigninTask.TaskStatus.Skipped))
+    foreach (var item in tasks.FindAll(x => x.Status == SignInTask.TaskStatus.Skipped))
     {
         logger.Info($"{item.GetLogPrefix()}：{item.StatusText}。");
     }

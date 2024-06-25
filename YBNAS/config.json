@@ -1,6 +1,7 @@
 ﻿{
   "AutoSignIn": true,
   "AutoExit": false,
+  "Execute": "",
   "Proxy": "",
   "Shuffle": true,
   "MaxRunningTasks": 4,

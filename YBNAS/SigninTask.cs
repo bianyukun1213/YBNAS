@@ -4,6 +4,7 @@ using Flurl.Http;
 using Flurl.Http.Content;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace YBNAS
@@ -110,14 +111,14 @@ namespace YBNAS
             Aborted
         }
 
-        private readonly string _taskGuid = string.Empty;
+        private readonly string _taskId = string.Empty;
         private TaskStatus _status;
         private string _statusText;
 
         private string _name = string.Empty;
         private readonly string _account = string.Empty;
         private readonly string _password = string.Empty;
-        private readonly List<double> _position = [0.0, 0.0];
+        private readonly double[] _position = [0.0, 0.0];
         private readonly string _address = string.Empty;
         private readonly bool _outside = false;
         private readonly string _photo = string.Empty;
@@ -148,14 +149,15 @@ namespace YBNAS
         public CookieJar _jar = new();
         public static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
-        public string TaskGuid { get { return _taskGuid; } }
+        public string TaskId { get { return _taskId; } }
         public TaskStatus Status { get { return _status; } }
         public string StatusText { get { return _statusText; } }
 
         public string Name { get { return _name; } }
         public string Account { get { return _account; } }
+        [JsonConverter(typeof(PasswordJsonConverter))]
         public string Password { get { return _password; } }
-        public List<double> Position { get { return _position; } }
+        public double[] Position { get { return _position; } }
         public string Address { get { return _address; } }
         public bool Outside { get { return _outside; } }
         public string Photo { get { return _photo; } }
@@ -174,7 +176,7 @@ namespace YBNAS
             string name,
             string account,
             string password,
-            List<double> position,
+            double[] position,
             string address,
             string photo,
             string reason,
@@ -187,14 +189,14 @@ namespace YBNAS
             Device device = new()
             )
         {
-            _taskGuid = Guid.NewGuid().ToString()[..4];
+            _taskId = Guid.NewGuid().ToString()[..8];
             _status = TaskStatus.Waiting;
             _statusText = "等待";
 
             _name = name;
             _account = account;
             _password = password;
-            if (position.Count == 2)
+            if (position.Length == 2)
                 _position = position;
             _address = address;
             _photo = photo;
@@ -219,7 +221,7 @@ namespace YBNAS
 
         public string GetLogPrefix()
         {
-            return "任务 " + _taskGuid + (!string.IsNullOrEmpty(_name.Trim()) ? "（" + _name + "）" : string.Empty);
+            return "任务 " + _taskId + (!string.IsNullOrEmpty(_name.Trim()) ? "（" + _name + "）" : string.Empty);
         }
 
         private static int GetRandom(int minValue, int maxValue)
@@ -433,7 +435,7 @@ namespace YBNAS
                 .WithCookies(out _jar); // 存入 cookie，供以后的请求携带。
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetLoginParams.Url}……");
             string loginParamsContent = await reqGetLoginParams.GetStringAsync();
-            _logger.Debug($"{GetLogPrefix()}：收到响应：{loginParamsContent}。");
+            _logger.Debug($"{GetLogPrefix()}：收到登录参数响应。");
             string rsaPubKey = new Regex(@"-----BEGIN PUBLIC KEY-----(.*\n)+-----END PUBLIC KEY-----").Match(loginParamsContent).Value ?? string.Empty;
             if (string.IsNullOrEmpty(rsaPubKey))
                 _logger.Error($"{GetLogPrefix()}：获取登录参数失败，RSA 加密公钥为空。");
@@ -462,7 +464,7 @@ namespace YBNAS
             var loginBody = new { oauth_uname = _account, oauth_upwd = pwdEncoded, client_id = "95626fa3080300ea", redirect_uri = "https://f.yiban.cn/iapp7463" };
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqLogin.Url}，loginBody：{JsonSerializer.Serialize(loginBody, ServiceOptions.jsonSerializerOptions)}……");
             string loginContent = await reqLogin.PostUrlEncodedAsync(loginBody).ReceiveString();
-            _logger.Debug($"{GetLogPrefix()}：收到响应：{loginContent}。");
+            _logger.Debug($"{GetLogPrefix()}：收到登录响应：{loginContent}。");
             if (loginContent.Contains("error"))
             {
                 _logger.Error($"{GetLogPrefix()}：登录失败，可能是用户名或密码错误。");
@@ -481,7 +483,7 @@ namespace YBNAS
                 .WithCookies(_jar);
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetVr.Url}……");
             var resGetVr = await reqGetVr.WithAutoRedirect(false).GetAsync(); // 不要重定向，以便从响应头读取 verify_request。
-            _logger.Debug($"{GetLogPrefix()}：收到响应。");
+            _logger.Debug($"{GetLogPrefix()}：收到认证参数响应。");
             string vr = string.Empty;
             foreach (var (name, value) in resGetVr.Headers)
             {
@@ -509,7 +511,7 @@ namespace YBNAS
                 .WithCookies(_jar);
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqAuth.Url}……");
             var authContent = await reqAuth.GetStringAsync();
-            _logger.Debug($"{GetLogPrefix()}：收到响应：{authContent}");
+            _logger.Debug($"{GetLogPrefix()}：收到校本化认证响应：{authContent}。");
             YibanNightAttendanceSignInApiRes authRes = ParseYibanNightAttendanceSignInApiRes(JsonNode.Parse(authContent!)!);
             if (authRes.Code != 0)
             {
@@ -538,7 +540,7 @@ namespace YBNAS
                 .WithCookies(_jar);
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetDevice.Url}……");
             var deviceContent = await reqGetDevice.GetStringAsync();
-            _logger.Debug($"{GetLogPrefix()}：收到响应：{deviceContent}");
+            _logger.Debug($"{GetLogPrefix()}：收到授权设备响应：{deviceContent}。");
             YibanNightAttendanceSignInApiRes deviceRes = ParseYibanNightAttendanceSignInApiRes(JsonNode.Parse(deviceContent!)!);
             if (deviceRes.Code != 0)
             {
@@ -565,7 +567,7 @@ namespace YBNAS
                 .WithCookies(_jar);
             _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignInInfo.Url}……");
             var infoContent = await reqSignInInfo.GetStringAsync();
-            _logger.Debug($"{GetLogPrefix()}：收到响应：{infoContent}");
+            _logger.Debug($"{GetLogPrefix()}：收到签到信息响应：{infoContent}。");
             YibanNightAttendanceSignInApiRes infoRes = ParseYibanNightAttendanceSignInApiRes(JsonNode.Parse(infoContent!)!);
             if (infoRes.Code != 0)
             {
@@ -601,7 +603,7 @@ namespace YBNAS
                     .WithCookies(_jar);
                 _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetUploadUri.Url}……");
                 var uploadUriContent = await reqGetUploadUri.GetStringAsync();
-                _logger.Debug($"{GetLogPrefix()}：收到响应：{uploadUriContent}");
+                _logger.Debug($"{GetLogPrefix()}：收到照片上传 URI 响应：{uploadUriContent}。");
                 YibanNightAttendanceSignInApiRes uploadUriRes = ParseYibanNightAttendanceSignInApiRes(JsonNode.Parse(uploadUriContent!)!);
                 if (uploadUriRes.Code != 0)
                 {
@@ -616,7 +618,7 @@ namespace YBNAS
                 //.WithCookies(_jar);
                 _logger.Debug($"{GetLogPrefix()}：发送请求：{reqUploadPhoto.Url}……");
                 var uploadPhotoContent = await reqUploadPhoto.PutAsync(new FileContent(_photo));
-                _logger.Debug($"{GetLogPrefix()}：收到响应：HTTP {uploadPhotoContent.StatusCode}");
+                _logger.Debug($"{GetLogPrefix()}：收到照片上传响应：HTTP {uploadPhotoContent.StatusCode}。");
                 if (uploadPhotoContent.StatusCode != 200)
                 {
                     _logger.Error($"{GetLogPrefix()}：照片上传失败，服务端返回 HTTP 状态码：{uploadPhotoContent.StatusCode}。");
@@ -630,7 +632,7 @@ namespace YBNAS
                     .WithCookies(_jar);
                 _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetDownloadUri.Url}……");
                 var downloadUriContent = await reqGetDownloadUri.GetStringAsync();
-                _logger.Debug($"{GetLogPrefix()}：收到响应：{downloadUriContent}");
+                _logger.Debug($"{GetLogPrefix()}：收到照片下载 URI 响应：{downloadUriContent}。");
                 YibanNightAttendanceSignInApiRes downloadUriRes = ParseYibanNightAttendanceSignInApiRes(JsonNode.Parse(downloadUriContent!)!);
                 if (downloadUriRes.Code != 0)
                 {
@@ -667,7 +669,7 @@ namespace YBNAS
                 _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignIn.Url}，SignInBody：{JsonSerializer.Serialize(signinBody, ServiceOptions.jsonSerializerOptions)}……");
                 signinContent = await reqSignIn.PostUrlEncodedAsync(signinBody).ReceiveString();
             }
-            _logger.Debug($"{GetLogPrefix()}：收到响应：{signinContent}。");
+            _logger.Debug($"{GetLogPrefix()}：收到晚点签到响应：{signinContent}。");
             YibanNightAttendanceSignInApiRes siginRes = ParseYibanNightAttendanceSignInApiRes(JsonNode.Parse(signinContent!)!);
             if (siginRes.Code != 0)
             {

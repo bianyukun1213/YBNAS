@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace YBNAS
 {
@@ -7,9 +8,10 @@ namespace YBNAS
         public bool Enable { get; set; }
         public string Name { get; set; }
         public string Account { get; set; }
+        [JsonConverter(typeof(PasswordJsonConverter))]
         public string Password { get; set; }
         public Device Device { get; set; } // C# struct 是值类型，不会是 null。
-        public List<double> Position { get; set; }
+        public double[] Position { get; set; }
         public string Address { get; set; }
         public bool Outside { get; set; }
         public string Photo { get; set; }
@@ -20,10 +22,12 @@ namespace YBNAS
             return JsonSerializer.Serialize(this, ServiceOptions.jsonSerializerOptions);
         }
     }
+
     internal static class Config
     {
         public static bool AutoSignIn { get; set; }
         public static bool AutoExit { get; set; }
+        public static string Execute { get; set; } = string.Empty;
         public static string Proxy { get; set; } = string.Empty;
         public static bool Shuffle { get; set; }
         public static int MaxRunningTasks { get; set; }

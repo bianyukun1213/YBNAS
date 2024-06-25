@@ -7,11 +7,16 @@ using YBNAS;
 using System.Text.Json;
 using CommandLine;
 using Error = YBNAS.Error;
+using System.Diagnostics;
+using System.Text;
 
 var asm = System.Reflection.Assembly.GetExecutingAssembly();
-string appVer = $"{asm.GetName().Name} v{asm.GetName().Version}";
+string appName = asm.GetName().Name!;
+string appVer = asm.GetName().Version!.ToString();
+string appTitle = $"{appName} v{appVer}";
+string tempPath = Path.Combine(Path.GetTempPath(), appName);
 
-Console.Title = appVer;
+Console.Title = appTitle;
 Logger logger = LogManager.GetCurrentClassLogger(); // NLog 推荐 logger 声明成 static 的，不过这里不行。
 string configPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "config.json");
 string configSchemaPath = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "config.json.schema");
@@ -42,7 +47,7 @@ parser.ParseArguments<CommandLineOptions>(args).WithParsed(o =>
 });
 
 logger.Debug("程序启动。");
-Console.WriteLine($"{appVer} 由 Hollis 编写，源代码、许可证、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
+Console.WriteLine($"{appTitle} 由 Hollis 编写，源代码、许可证、版本更新及项目说明见 https://github.com/bianyukun1213/YBNAS。");
 
 DateTimeOffset curDateTime = DateTimeOffset.Now;
 List<SignInTask> tasks = [];
@@ -54,6 +59,20 @@ int tasksComplete = 0;
 int tasksSkipped = 0;
 int tasksWaiting = tasks.Count;
 int tasksAborted = 0;
+
+try
+{
+    logger.Debug("清理临时文件……");
+    Directory.CreateDirectory(tempPath);
+    DirectoryInfo dir = new(tempPath);
+    FileInfo[] files = dir.GetFiles("result_*.json", SearchOption.TopDirectoryOnly);
+    foreach (var item in files)
+        File.Delete(item.FullName);
+}
+catch (Exception ex)
+{
+    logger.Warn(ex, "清理临时文件时出错。");
+}
 
 try
 {
@@ -92,6 +111,8 @@ try
     logger.Debug($"配置 AutoSignIn: {Config.AutoSignIn}。");
     Config.AutoExit = confRoot["AutoExit"].Deserialize<bool>();
     logger.Debug($"配置 AutoExit: {Config.AutoExit}。");
+    Config.Execute = confRoot["Execute"].Deserialize<string>() ?? string.Empty;
+    logger.Debug($"配置 Execute: {Config.Execute}。");
     Config.Proxy = confRoot["Proxy"].Deserialize<string>() ?? string.Empty;
     if (!string.IsNullOrEmpty(Config.Proxy) &&
         !Config.Proxy.StartsWith("http://") &&
@@ -156,9 +177,7 @@ try
     }
     foreach (SignInConfig conf in Config.SignInConfigs)
     {
-        SignInConfig tempSc = JsonSerializer.Deserialize<SignInConfig>(JsonSerializer.Serialize(conf, ServiceOptions.jsonSerializerOptions))!;
-        tempSc.Password = "<已抹除>";
-        logger.Debug($"解析签到配置 {tempSc}……"); // 在日志中抹除密码。
+        logger.Debug($"解析签到配置 {conf}……");
         string getSignInConfigSkippedStr(string reason)
         {
             return $"第 {Config.SignInConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name.Trim()) ? string.Empty : "（" + conf.Name + "）")}{reason}，将跳过解析。";
@@ -178,7 +197,7 @@ try
             logger.Warn(getSignInConfigSkippedStr("密码为空"));
             continue;
         }
-        if (conf.Position?.Count != 2)
+        if (conf.Position?.Length != 2)
         {
             logger.Warn(getSignInConfigSkippedStr("签到坐标格式错误"));
             continue;
@@ -238,7 +257,7 @@ try
             conf.Device
             );
         tasks.Add(task);
-        retries.Add(task.TaskGuid, 0);
+        retries.Add(task.TaskId, 0);
         UpdateStatus();
     }
     if (Config.Shuffle)
@@ -289,7 +308,7 @@ void UpdateStatus()
     tasksSkipped = tasks.Count(x => x.Status == SignInTask.TaskStatus.Skipped);
     tasksWaiting = tasks.Count(x => x.Status == SignInTask.TaskStatus.Waiting);
     tasksAborted = tasks.Count(x => x.Status == SignInTask.TaskStatus.Aborted);
-    Console.Title = $"{appVer} | {Config.SignInConfigs.Count} 签到配置，{tasks.Count} 已解析：{tasksRunning} 运行，{tasksComplete} 完成，{tasksSkipped} 跳过，{tasksWaiting} 等待，{tasksAborted} 中止";
+    Console.Title = $"{appTitle} | {Config.SignInConfigs.Count} 签到配置，{tasks.Count} 已解析：{tasksRunning} 运行，{tasksComplete} 完成，{tasksSkipped} 跳过，{tasksWaiting} 等待，{tasksAborted} 中止";
 }
 
 void RunNextTask()
@@ -320,7 +339,7 @@ void St_OnSkip(SignInTask task, Error err)
 void St_OnError(SignInTask task, Error err)
 {
     UpdateStatus();
-    bool succ = retries.TryGetValue(task.TaskGuid, out int curRetries);
+    bool succ = retries.TryGetValue(task.TaskId, out int curRetries);
     if (!succ)
         return;
     string logPrefix = task.GetLogPrefix();
@@ -329,7 +348,7 @@ void St_OnError(SignInTask task, Error err)
     if (curRetries < Config.MaxRetries)
     {
         logger.Warn($"{logPrefix}出错，将进行第 {++curRetries} 次重试。");
-        retries[task.TaskGuid] = curRetries; // 在重试任务运行前增加重试次数。
+        retries[task.TaskId] = curRetries; // 在重试任务运行前增加重试次数。
         var res = task.Run();
     }
     else
@@ -363,6 +382,49 @@ try
 catch (Exception ex)
 {
     logger.Error(ex, "写入缓存文件时出错。");
+}
+
+string[] exec = Config.Execute.Split(' ');
+if (!string.IsNullOrEmpty(exec[0]))
+{
+    try
+    {
+        string execArgs = string.Empty;
+        if (exec.Length > 1)
+        {
+            string result = JsonSerializer.Serialize(tasks, ServiceOptions.jsonSerializerOptions);
+            string resultTemp = string.Empty;
+            if (Config.Execute.Contains("{%RESULT_TEMP%}"))
+            {
+                resultTemp = Path.Combine(tempPath, $"result_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.json");
+                File.WriteAllText(resultTemp, result);
+            }
+            StringBuilder sb = new(execArgs);
+            for (int i = 1; i < exec.Length; i++)
+                sb.Append(exec[i].Replace("{%RESULT_TEMP%}", resultTemp)
+                    .Replace("{%SIGN_IN_CONFIG_COUNT%}", Config.SignInConfigs.Count.ToString())
+                    .Replace("{%TASK_COUNT%}", tasks.Count.ToString())
+                    .Replace("{%TASKS_RUNNING%}", tasksRunning.ToString())
+                    .Replace("{%TASKS_COMPLETE%}", tasksComplete.ToString())
+                    .Replace("{%TASKS_SKIPPED%}", tasksSkipped.ToString())
+                    .Replace("{%TASKS_WAITING%}", tasksWaiting.ToString())
+                    .Replace("{%TASKS_ABORTED%}", tasksAborted.ToString()) + ' ');
+            execArgs = sb.ToString().Trim();
+        }
+        logger.Debug($"运行程序：{exec[0]} {execArgs}。");
+        Process process = new();
+        ProcessStartInfo startInfo = new(exec[0], execArgs)
+        {
+            UseShellExecute = true
+        };
+        process.StartInfo = startInfo;
+        process.Start();
+        process.Close();
+    }
+    catch (Exception ex)
+    {
+        logger.Error(ex, "运行程序时出错。");
+    }
 }
 
 logger.Info("已尝试运行所有任务。");

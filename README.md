@@ -30,6 +30,7 @@
 {
   "AutoSignIn": true,
   "AutoExit": false,
+  "Execute": "",
   "Proxy": "",
   "Shuffle": true,
   "MaxRunningTasks": 4,
@@ -88,7 +89,9 @@
 
 &emsp;&emsp;`AutoSignIn` 字段配置是否自动签到。如不自动签到，则等待用户按任意键签到。
 
-&emsp;&emsp;`AutoExit` 字段配置已完成所有任务的执行或程序运行出错后，是否自动退出。如不自动退出，则等待用户按任意键退出。
+&emsp;&emsp;`AutoExit` 字段配置完成所有任务的执行或程序运行出错后，是否自动退出。如不自动退出，则等待用户按任意键退出。
+
+&emsp;&emsp;`Execute` 字段配置完成所有任务的执行后运行的命令，如 `code {%RESULT_TEMP%}`，它会调用 Visual Studio Code 打开结果文件。可使用的变量有结果文件 `{%RESULT_TEMP%}`、总签到配置条数 `{%SIGN_IN_CONFIG_COUNT%}`、已解析的签到配置条数 `{%TASK_COUNT%}`、运行中的任务数量 `{%TASKS_RUNNING%}`、已完成的任务数量 `{%TASKS_COMPLETE%}`、已跳过的任务数量 `{%TASKS_SKIPPED%}`、等待中的任务数量 `{%TASKS_WAITING%}`、已终止的任务数量 `{%TASKS_ABORTED%}`。“运行中的任务数量”和“等待中的任务数量”基本上没什么用。
 
 &emsp;&emsp;`Proxy` 字段配置网络代理，须以 `http://`、`https://`、`socks4://`、`socks4a://` 或 `socks5://` 开头。若为空字符串，则不使用代理。
 

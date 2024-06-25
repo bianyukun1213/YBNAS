@@ -7,6 +7,7 @@ namespace YBNAS
     {
         public bool Enable { get; set; }
         public string Name { get; set; }
+        public string Description { get; set; }
         public string Account { get; set; }
         [JsonConverter(typeof(PasswordJsonConverter))]
         public string Password { get; set; }

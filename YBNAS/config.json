@@ -11,7 +11,8 @@
   "SignInConfigs": [
     {
       "Enable": true,
-      "Name": "张三",
+      "Name": "姓名或昵称，选填，留空则从接口获取",
+      "Description": "注释，选填",
       "Account": "账号（手机号码）",
       "Password": "密码",
       "Device": {
@@ -36,6 +37,7 @@
     {
       "Enable": true,
       "Name": "李四",
+      "Description": "寝室老六",
       "Account": "账号 2",
       "Password": "密码 2",
       "Device": {},

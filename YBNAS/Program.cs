@@ -180,7 +180,21 @@ try
         logger.Debug($"解析签到配置 {conf}……");
         string getSignInConfigSkippedStr(string reason)
         {
-            return $"第 {Config.SignInConfigs.IndexOf(conf) + 1} 条签到配置{(string.IsNullOrEmpty(conf.Name.Trim()) ? string.Empty : "（" + conf.Name + "）")}{reason}，将跳过解析。";
+            string nameAndDesc = string.Empty;
+            string name = conf.Name ?? string.Empty;
+            string description = conf.Description ?? string.Empty;
+            if (!string.IsNullOrEmpty(name.Trim()) && !string.IsNullOrEmpty(description.Trim()))
+            {
+                nameAndDesc = $"{name}，{description}";
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(name.Trim()))
+                    nameAndDesc += name.Trim();
+                if (!string.IsNullOrEmpty(description.Trim()))
+                    nameAndDesc += description.Trim();
+            }
+            return $"第 {Config.SignInConfigs.IndexOf(conf) + 1} 条签到配置{(!string.IsNullOrEmpty(nameAndDesc) ? "（" + nameAndDesc + "）" : string.Empty)}{reason}，将跳过解析。";
         }
         if (!conf.Enable)
         {
@@ -241,13 +255,14 @@ try
             lastSuccess = 0;
         //lastSuccess = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 100;
         SignInTask task = new(
-            conf.Name,
+            conf.Name ?? string.Empty,
+            conf.Description ?? string.Empty,
             conf.Account,
             conf.Password,
             conf.Position,
             conf.Address,
             conf.Photo ?? string.Empty, // 此处 conf.Photo 可能为空。
-            conf.Reason,
+            conf.Reason ?? string.Empty,
             conf.Outside,
             conf.TimeSpan[0],
             conf.TimeSpan[1],

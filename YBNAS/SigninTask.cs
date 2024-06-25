@@ -116,6 +116,7 @@ namespace YBNAS
         private string _statusText;
 
         private string _name = string.Empty;
+        private string _description = string.Empty; // 不要只读。
         private readonly string _account = string.Empty;
         private readonly string _password = string.Empty;
         private readonly double[] _position = [0.0, 0.0];
@@ -154,6 +155,7 @@ namespace YBNAS
         public string StatusText { get { return _statusText; } }
 
         public string Name { get { return _name; } }
+        public string Description { get { return _description; } }
         public string Account { get { return _account; } }
         [JsonConverter(typeof(PasswordJsonConverter))]
         public string Password { get { return _password; } }
@@ -174,6 +176,7 @@ namespace YBNAS
 
         public SignInTask(
             string name,
+            string description,
             string account,
             string password,
             double[] position,
@@ -194,6 +197,7 @@ namespace YBNAS
             _statusText = "等待";
 
             _name = name;
+            _description = description;
             _account = account;
             _password = password;
             if (position.Length == 2)
@@ -221,7 +225,19 @@ namespace YBNAS
 
         public string GetLogPrefix()
         {
-            return "任务 " + _taskId + (!string.IsNullOrEmpty(_name.Trim()) ? "（" + _name + "）" : string.Empty);
+            string nameAndDesc = string.Empty;
+            if (!string.IsNullOrEmpty(_name.Trim()) && !string.IsNullOrEmpty(_description.Trim()))
+            {
+                nameAndDesc = $"{_name}，{_description}";
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(_name.Trim()))
+                    nameAndDesc += _name.Trim();
+                if (!string.IsNullOrEmpty(_description.Trim()))
+                    nameAndDesc += _description.Trim();
+            }
+            return "任务 " + _taskId + (!string.IsNullOrEmpty(nameAndDesc) ? "（" + nameAndDesc + "）" : string.Empty);
         }
 
         private static int GetRandom(int minValue, int maxValue)

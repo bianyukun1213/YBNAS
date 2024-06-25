@@ -40,7 +40,8 @@
   "SignInConfigs": [
     {
       "Enable": true,
-      "Name": "张三",
+      "Name": "姓名或昵称，选填，留空则从接口获取",
+      "Description": "注释，选填",
       "Account": "账号（手机号码）",
       "Password": "密码",
       "Device": {
@@ -52,9 +53,9 @@
         45.820275900282255
       ],
       "Address": "黑龙江省哈尔滨市松北区浦源路2298号靠近黑龙江科技大学",
+      "Outside": false,
       "Photo": "",
       "Reason": "",
-      "Outside": false,
       "TimeSpan": [
         21,
         50,
@@ -65,6 +66,7 @@
     {
       "Enable": true,
       "Name": "李四",
+      "Description": "寝室老六",
       "Account": "账号 2",
       "Password": "密码 2",
       "Device": {},
@@ -74,8 +76,8 @@
       ],
       "Address": "黑龙江省哈尔滨市南岗区花园街道西大直街国际饭店",
       "Photo": "D:\\sign_in_photo\\photo.jpg",
-      "Reason": "跟国际友人聚餐。",
       "Outside": true,
+      "Reason": "跟国际友人聚餐。",
       "TimeSpan": [
         21,
         50,
@@ -91,7 +93,7 @@
 
 &emsp;&emsp;`AutoExit` 字段配置完成所有任务的执行或程序运行出错后，是否自动退出。如不自动退出，则等待用户按任意键退出。
 
-&emsp;&emsp;`Execute` 字段配置完成所有任务的执行后运行的命令，如 `code {%RESULT_TEMP%}`，它会调用 Visual Studio Code 打开结果文件。可使用的变量有结果文件 `{%RESULT_TEMP%}`、总签到配置条数 `{%SIGN_IN_CONFIG_COUNT%}`、已解析的签到配置条数 `{%TASK_COUNT%}`、运行中的任务数量 `{%TASKS_RUNNING%}`、已完成的任务数量 `{%TASKS_COMPLETE%}`、已跳过的任务数量 `{%TASKS_SKIPPED%}`、等待中的任务数量 `{%TASKS_WAITING%}`、已终止的任务数量 `{%TASKS_ABORTED%}`。“运行中的任务数量”和“等待中的任务数量”基本上没什么用。
+&emsp;&emsp;`Execute` 字段配置完成所有任务的执行后运行的命令，如 `code \"{%RESULT_TEMP%}\"`，它会调用 Visual Studio Code 打开结果文件。可使用的变量有结果文件 `{%RESULT_TEMP%}`、总签到配置条数 `{%SIGN_IN_CONFIG_COUNT%}`、已解析的签到配置条数 `{%TASK_COUNT%}`、运行中的任务数量 `{%TASKS_RUNNING%}`、已完成的任务数量 `{%TASKS_COMPLETE%}`、已跳过的任务数量 `{%TASKS_SKIPPED%}`、等待中的任务数量 `{%TASKS_WAITING%}`、已终止的任务数量 `{%TASKS_ABORTED%}`。“运行中的任务数量”和“等待中的任务数量”基本上没什么用。
 
 &emsp;&emsp;`Proxy` 字段配置网络代理，须以 `http://`、`https://`、`socks4://`、`socks4a://` 或 `socks5://` 开头。若为空字符串，则不使用代理。
 

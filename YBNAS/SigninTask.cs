@@ -611,10 +611,7 @@ namespace YBNAS
             {
                 var reqGetUploadUri = "https://api.uyiban.com/"
                     .AppendPathSegment("nightAttendance/student/index/uploadUri")
-                    .SetQueryParams(new { name = signinPhotoInfo.Name })
-                    .SetQueryParams(new { type = signinPhotoInfo.Type })
-                    .SetQueryParams(new { size = signinPhotoInfo.Size })
-                    .SetQueryParams(new { CSRF = _csrfToken })
+                    .SetQueryParams(new { name = signinPhotoInfo.Name, type = signinPhotoInfo.Type, size = signinPhotoInfo.Size, CSRF = _csrfToken })
                     .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = _userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                     .WithCookies(_jar);
                 _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetUploadUri.Url}……");
@@ -642,8 +639,7 @@ namespace YBNAS
                 }
                 var reqGetDownloadUri = "https://api.uyiban.com/"
                     .AppendPathSegment("nightAttendance/student/index/downloadUri")
-                    .SetQueryParams(new { AttachmentFileName = attachmentFilename })
-                    .SetQueryParams(new { CSRF = _csrfToken })
+                    .SetQueryParams(new { AttachmentFileName = attachmentFilename, CSRF = _csrfToken })
                     .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = _userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                     .WithCookies(_jar);
                 _logger.Debug($"{GetLogPrefix()}：发送请求：{reqGetDownloadUri.Url}……");

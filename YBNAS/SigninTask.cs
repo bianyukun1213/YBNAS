@@ -147,8 +147,8 @@ namespace YBNAS
         public delegate void ErrorHandler(SignInTask st, Error err);
         public event ErrorHandler? OnError;
 
-        public CookieJar _jar = new();
-        public static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
+        private CookieJar _jar = new();
+        private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
         public string TaskId { get { return _taskId; } }
         public TaskStatus Status { get { return _status; } }

@@ -318,11 +318,11 @@ namespace YBNAS
                 }
                 _name = string.IsNullOrEmpty(_name.Trim()) ? (string.IsNullOrEmpty(_user.PersonName) ? string.Empty : _user.PersonName) : _name;
                 _logger.Info($"{GetLogPrefix()}：认证成功。");
-                if (_user.UniversityName != "黑龙江科技大学")
-                    if (string.IsNullOrEmpty(_user.UniversityName))
-                        _logger.Warn($"{GetLogPrefix()}：学校信息缺失，本程序可能不适用，不过我会试试。");
-                    else
-                        _logger.Warn($"{GetLogPrefix()}：本程序可能不适用于{_name}学校{_user.UniversityName}，不过我会试试。");
+                //if (_user.UniversityName != "黑龙江科技大学")
+                //    if (string.IsNullOrEmpty(_user.UniversityName))
+                //        _logger.Warn($"{GetLogPrefix()}：学校信息缺失，本程序可能不适用，不过我会试试。");
+                //    else
+                //        _logger.Warn($"{GetLogPrefix()}：本程序可能不适用于{_name}学校{_user.UniversityName}，不过我会试试。");
                 if (string.IsNullOrEmpty(_device.Code) || string.IsNullOrEmpty(_device.PhoneModel))
                 {
                     _logger.Info($"{GetLogPrefix()}：未提供合适的设备信息，将从接口获取。");
@@ -330,7 +330,8 @@ namespace YBNAS
                     if (!string.IsNullOrEmpty(_device.PhoneModel) && !string.IsNullOrEmpty(_device.Code))
                         _logger.Info($"{GetLogPrefix()}：绑定的设备是 {_device.PhoneModel}（{_device.Code}）。");
                     else
-                        _logger.Info($"{GetLogPrefix()}：设备信息缺失。Do you guys not have phones? 可能会签到失败，不过我会试试。");
+                        //_logger.Info($"{GetLogPrefix()}：设备信息缺失。Do you guys not have phones? 可能会签到失败，不过我会试试。");
+                        _logger.Info($"{GetLogPrefix()}：设备信息缺失。");
                 }
                 if (!string.IsNullOrEmpty(_device.PhoneModel) && (_device.PhoneModel.Contains("iPhone") || _device.PhoneModel.Contains("iPad")))
                     _userAgent = $"yiban_iOS/{_appVersion}"; // 如果是 iPhone 或 iPad，让之后的请求携带 iOS 客户端的 UA。

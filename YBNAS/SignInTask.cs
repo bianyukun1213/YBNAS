@@ -417,8 +417,8 @@ namespace YBNAS
                         return;
                     }
                 }
-                bool signinStatus = await SignIn(_device, uploadedPhotoInfo);
-                if (!signinStatus) // 签到失败。
+                bool signInStatus = await SignIn(_device, uploadedPhotoInfo);
+                if (!signInStatus) // 签到失败。
                 {
                     _status = TaskStatus.Aborted;
                     _statusText = "签到失败";

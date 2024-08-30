@@ -292,7 +292,7 @@ namespace YBNAS
                     OnError?.Invoke(this, Error.LoginParamsInvalid);
                     return;
                 }
-                bool loginSucceeded = await Login(loginParams.RsaPubKey, loginParams.Pageuse);
+                bool loginSucceeded = await LogIn(loginParams.RsaPubKey, loginParams.Pageuse);
                 if (!loginSucceeded)
                 {
                     _status = TaskStatus.Aborted;
@@ -466,23 +466,23 @@ namespace YBNAS
             return new LoginParams { RsaPubKey = rsaPubKey, Pageuse = pageuse };
         }
 
-        private async Task<bool> Login(string rsaPubKey, string ajaxSign)
+        private async Task<bool> LogIn(string rsaPubKey, string ajaxSign)
         {
             _logger.Info($"{GetLogPrefix()}：加密密码……");
             var pem = RSA_PEM.FromPEM(rsaPubKey);
             var rsa = new RSA_Util(pem);
             string pwdEncoded = rsa.Encode(_password);
             _logger.Info($"{GetLogPrefix()}：登录……");
-            var reqLogin = "https://oauth.yiban.cn/"
+            var reqLogIn = "https://oauth.yiban.cn/"
                 .AppendPathSegment("code/usersure")
                 .SetQueryParams(new { ajax_sign = ajaxSign })
                 .WithHeaders(new { User_Agent = _userAgent })
                 .WithCookies(_jar);
-            var loginBody = new { oauth_uname = _account, oauth_upwd = pwdEncoded, client_id = "95626fa3080300ea", redirect_uri = "https://f.yiban.cn/iapp7463" };
-            _logger.Debug($"{GetLogPrefix()}：发送请求：{reqLogin.Url}，loginBody：{JsonSerializer.Serialize(loginBody, ServiceOptions.jsonSerializerOptions)}……");
-            string loginContent = await reqLogin.PostUrlEncodedAsync(loginBody).ReceiveString();
-            _logger.Debug($"{GetLogPrefix()}：收到登录响应：{loginContent}。");
-            if (loginContent.Contains("error"))
+            var logInBody = new { oauth_uname = _account, oauth_upwd = pwdEncoded, client_id = "95626fa3080300ea", redirect_uri = "https://f.yiban.cn/iapp7463" };
+            _logger.Debug($"{GetLogPrefix()}：发送请求：{reqLogIn.Url}，loginBody：{JsonSerializer.Serialize(logInBody, ServiceOptions.jsonSerializerOptions)}……");
+            string logInContent = await reqLogIn.PostUrlEncodedAsync(logInBody).ReceiveString();
+            _logger.Debug($"{GetLogPrefix()}：收到登录响应：{logInContent}。");
+            if (logInContent.Contains("error"))
             {
                 _logger.Error($"{GetLogPrefix()}：登录失败，可能是用户名或密码错误。");
                 return false;

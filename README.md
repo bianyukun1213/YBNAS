@@ -2,7 +2,7 @@
 
 &emsp;&emsp;本项目**仅供学习使用**，使用时**自负风险**。
 
-&emsp;&emsp;针对**黑龙江科技大学**开发，其他学校请自行测试。
+&emsp;&emsp;针对**黑龙江科技大学**开发，其他学校请自行测试。2024 年 8 月，黑龙江科技大学改为使用**智慧学工系统**进行晚点签到，易班校本化页面已清空。针对新系统的项目为 [USTHNAS](https://github.com/bianyukun1213/USTHNAS)，本项目不一定会继续维护。
 
 &emsp;&emsp;感谢 [yiban](https://github.com/Sricor/yiban) 项目提供参考。
 

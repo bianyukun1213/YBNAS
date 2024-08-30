@@ -479,7 +479,7 @@ namespace YBNAS
                 .WithHeaders(new { User_Agent = _userAgent })
                 .WithCookies(_jar);
             var logInBody = new { oauth_uname = _account, oauth_upwd = pwdEncoded, client_id = "95626fa3080300ea", redirect_uri = "https://f.yiban.cn/iapp7463" };
-            _logger.Debug($"{GetLogPrefix()}：发送请求：{reqLogIn.Url}，loginBody：{JsonSerializer.Serialize(logInBody, ServiceOptions.jsonSerializerOptions)}……");
+            _logger.Debug($"{GetLogPrefix()}：发送请求：{reqLogIn.Url}，logInBody：{JsonSerializer.Serialize(logInBody, ServiceOptions.jsonSerializerOptions)}……");
             string logInContent = await reqLogIn.PostUrlEncodedAsync(logInBody).ReceiveString();
             _logger.Debug($"{GetLogPrefix()}：收到登录响应：{logInContent}。");
             if (logInContent.Contains("error"))
@@ -673,13 +673,13 @@ namespace YBNAS
             if (_outside) // 是否在校外。校内外带照片签到，AttachmentFileName 的位置不同。
             {
                 var signInBody = new { OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonSerializer.Serialize(new { Reason = _reason, uploadedPhotoInfo.AttachmentFileName, LngLat = $"{_position[0]},{_position[1]}", Address = _address }) }; // SignInfo 是字符串。                                                                                                                                                                                                                                                                            //var signinBody = new { AttachmentFileName = attachmentFilename, OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonSerializer.Serialize(new { Reason = _reason, AttachmentFileName = attachmentFilename, LngLat = $"{_position[0]},{_position[1]}", Address = _address }) }; // SignInfo 是字符串。
-                _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignIn.Url}，SignInBody：{JsonSerializer.Serialize(signInBody, ServiceOptions.jsonSerializerOptions)}……");
+                _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignIn.Url}，signInBody：{JsonSerializer.Serialize(signInBody, ServiceOptions.jsonSerializerOptions)}……");
                 signInContent = await reqSignIn.PostUrlEncodedAsync(signInBody).ReceiveString();
             }
             else
             {
                 var signInBody = new { uploadedPhotoInfo.AttachmentFileName, OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonSerializer.Serialize(new { Reason = "", AttachmentFileName = "", LngLat = $"{_position[0]},{_position[1]}", Address = _address }) }; // SignInfo 是字符串。
-                _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignIn.Url}，SignInBody：{JsonSerializer.Serialize(signInBody, ServiceOptions.jsonSerializerOptions)}……");
+                _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignIn.Url}，signInBody：{JsonSerializer.Serialize(signInBody, ServiceOptions.jsonSerializerOptions)}……");
                 signInContent = await reqSignIn.PostUrlEncodedAsync(signInBody).ReceiveString();
             }
             _logger.Debug($"{GetLogPrefix()}：收到晚点签到响应：{signInContent}。");

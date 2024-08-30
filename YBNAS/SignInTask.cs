@@ -669,24 +669,24 @@ namespace YBNAS
                 .SetQueryParams(new { CSRF = _csrfToken })
                 .WithHeaders(new { Origin = "https://app.uyiban.com" /* 签到 origin 是 app…… */, User_Agent = _userAgent /* 签到 UA 包含 yiban_android，如果是 iOS，则为 yiban_iOS。 */, Cookie = $"csrf_token={_csrfToken}" }) // 还需在 cookie 中提供 csrf_token。
                 .WithCookies(_jar);
-            string signinContent;
+            string signInContent;
             if (_outside) // 是否在校外。校内外带照片签到，AttachmentFileName 的位置不同。
             {
-                var signinBody = new { OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonSerializer.Serialize(new { Reason = _reason, uploadedPhotoInfo.AttachmentFileName, LngLat = $"{_position[0]},{_position[1]}", Address = _address }) }; // SignInfo 是字符串。                                                                                                                                                                                                                                                                            //var signinBody = new { AttachmentFileName = attachmentFilename, OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonSerializer.Serialize(new { Reason = _reason, AttachmentFileName = attachmentFilename, LngLat = $"{_position[0]},{_position[1]}", Address = _address }) }; // SignInfo 是字符串。
-                _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignIn.Url}，SignInBody：{JsonSerializer.Serialize(signinBody, ServiceOptions.jsonSerializerOptions)}……");
-                signinContent = await reqSignIn.PostUrlEncodedAsync(signinBody).ReceiveString();
+                var signInBody = new { OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonSerializer.Serialize(new { Reason = _reason, uploadedPhotoInfo.AttachmentFileName, LngLat = $"{_position[0]},{_position[1]}", Address = _address }) }; // SignInfo 是字符串。                                                                                                                                                                                                                                                                            //var signinBody = new { AttachmentFileName = attachmentFilename, OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonSerializer.Serialize(new { Reason = _reason, AttachmentFileName = attachmentFilename, LngLat = $"{_position[0]},{_position[1]}", Address = _address }) }; // SignInfo 是字符串。
+                _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignIn.Url}，SignInBody：{JsonSerializer.Serialize(signInBody, ServiceOptions.jsonSerializerOptions)}……");
+                signInContent = await reqSignIn.PostUrlEncodedAsync(signInBody).ReceiveString();
             }
             else
             {
-                var signinBody = new { uploadedPhotoInfo.AttachmentFileName, OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonSerializer.Serialize(new { Reason = "", AttachmentFileName = "", LngLat = $"{_position[0]},{_position[1]}", Address = _address }) }; // SignInfo 是字符串。
-                _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignIn.Url}，SignInBody：{JsonSerializer.Serialize(signinBody, ServiceOptions.jsonSerializerOptions)}……");
-                signinContent = await reqSignIn.PostUrlEncodedAsync(signinBody).ReceiveString();
+                var signInBody = new { uploadedPhotoInfo.AttachmentFileName, OutState = "1", device.Code, device.PhoneModel /* 经测试只要 PhoneModel 对上即可。 */, SignInfo = JsonSerializer.Serialize(new { Reason = "", AttachmentFileName = "", LngLat = $"{_position[0]},{_position[1]}", Address = _address }) }; // SignInfo 是字符串。
+                _logger.Debug($"{GetLogPrefix()}：发送请求：{reqSignIn.Url}，SignInBody：{JsonSerializer.Serialize(signInBody, ServiceOptions.jsonSerializerOptions)}……");
+                signInContent = await reqSignIn.PostUrlEncodedAsync(signInBody).ReceiveString();
             }
-            _logger.Debug($"{GetLogPrefix()}：收到晚点签到响应：{signinContent}。");
-            YibanNightAttendanceSignInApiRes siginRes = ParseYibanNightAttendanceSignInApiRes(JsonNode.Parse(signinContent!)!);
-            if (siginRes.Code != 0)
+            _logger.Debug($"{GetLogPrefix()}：收到晚点签到响应：{signInContent}。");
+            YibanNightAttendanceSignInApiRes sigInRes = ParseYibanNightAttendanceSignInApiRes(JsonNode.Parse(signInContent!)!);
+            if (sigInRes.Code != 0)
             {
-                _logger.Error($"{GetLogPrefix()}：签到失败，服务端返回消息：{siginRes.Msg}。");
+                _logger.Error($"{GetLogPrefix()}：签到失败，服务端返回消息：{sigInRes.Msg}。");
                 return false;
             }
             return true;

@@ -238,7 +238,17 @@ try
                 continue;
             }
         }
-        if (conf.TimeSpan?.Count != 4)
+        if (conf.TimeSpan?.Count != 4 ||
+            conf.TimeSpan[0] < 0 ||
+            conf.TimeSpan[0] > 23 ||
+            conf.TimeSpan[1] < 0 ||
+            conf.TimeSpan[1] > 59 ||
+            conf.TimeSpan[2] < 0 ||
+            conf.TimeSpan[2] > 23 ||
+            conf.TimeSpan[3] < 0 ||
+            conf.TimeSpan[3] > 59 ||
+            (conf.TimeSpan[0] > conf.TimeSpan[2]) ||
+            (conf.TimeSpan[0] == conf.TimeSpan[2] && conf.TimeSpan[1] > conf.TimeSpan[3]))
         {
             logger.Warn(getSignInConfigSkippedStr("签到时间段格式错误"));
             continue;

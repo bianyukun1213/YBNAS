@@ -1,6 +1,5 @@
 ﻿using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace YBNAS
 {
@@ -12,16 +11,17 @@ namespace YBNAS
         };
     }
 
-    internal class PasswordJsonConverter : JsonConverter<string>
-    {
-        public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            return reader.GetString()!;
-        }
+    // 不再需要。现在通过 Replace Layout Renderer 抹除密码。
+    //internal class PasswordJsonConverter : JsonConverter<string>
+    //{
+    //    public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    //    {
+    //        return reader.GetString()!;
+    //    }
 
-        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
-        {
-            writer.WriteStringValue("<已抹除>");
-        }
-    }
+    //    public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+    //    {
+    //        writer.WriteStringValue("<已抹除>");
+    //    }
+    //}
 }

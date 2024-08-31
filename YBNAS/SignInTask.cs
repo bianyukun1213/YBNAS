@@ -157,7 +157,6 @@ namespace YBNAS
         public string Name { get { return _name; } }
         public string Description { get { return _description; } }
         public string Account { get { return _account; } }
-        [JsonConverter(typeof(PasswordJsonConverter))]
         public string Password { get { return _password; } }
         public double[] Position { get { return _position; } }
         public string Address { get { return _address; } }

@@ -194,7 +194,7 @@ try
                 if (!string.IsNullOrEmpty(description.Trim()))
                     nameAndDesc += description.Trim();
             }
-            return $"第 {Config.SignInConfigs.IndexOf(conf) + 1} 条签到配置{(!string.IsNullOrEmpty(nameAndDesc) ? "（" + nameAndDesc + "）" : string.Empty)}{reason}，将跳过解析。";
+            return $"第 {Config.SignInConfigs.IndexOf(conf) + 1} 条签到配置{(!string.IsNullOrEmpty(nameAndDesc) ? "（" + nameAndDesc + "）" : string.Empty)}{reason}，跳过解析。";
         }
         if (!conf.Enable)
         {
@@ -459,7 +459,9 @@ if (tasksSkipped > 0)
         logger.Info($"{item.GetLogPrefix()}：{item.StatusText}。");
     }
 }
-if (tasksSkipped > 0)
+if (tasksComplete > 0)
+    logger.Info($"----完成（{tasksComplete}/{tasks.Count}）----");
+else if (tasksSkipped > 0)
     logger.Info("--------------");
 else if (tasksAborted > 0)
     logger.Warn("--------------");

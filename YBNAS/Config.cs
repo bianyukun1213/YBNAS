@@ -9,7 +9,6 @@ namespace YBNAS
         public string Name { get; set; }
         public string Description { get; set; }
         public string Account { get; set; }
-        [JsonConverter(typeof(PasswordJsonConverter))]
         public string Password { get; set; }
         public Device Device { get; set; } // C# struct 是值类型，不会是 null。
         public double[] Position { get; set; }
